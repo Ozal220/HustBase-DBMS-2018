@@ -3,6 +3,7 @@
 
 #include "PF_Manager.h"
 #include "str.h"
+#include "bitmanager.h"
 
 typedef int SlotNum;
 
@@ -18,6 +19,14 @@ typedef struct{
 	char *pData; 		 //记录所存储的数据 
 }RM_Record;
 
+//定义记录信息结构，参考指导书的设计
+typedef struct{
+	int recNum;
+	int recSize;
+	int recPerPage;
+	int recordOffset; //首条记录偏移量(由于位图的存在及其大小不变)
+	//int fileNum; //该表使用的分页文件数
+}RM_recControl;
 
 typedef struct
 {
@@ -32,6 +41,28 @@ typedef struct
 typedef struct{//文件句柄
 	bool bOpen;//句柄是否打开（是否正在被使用）
 	//需要自定义其内部结构
+	
+	/*********************
+	根据本实验中分页文件的定义方法，一个分页文件大小至多为127MB。
+	现考虑存在一个巨大的表，其大小大于分页文件总大小，此时需要多个
+	分页文件存储
+	*********************/
+	/*先不管多个文件的情况了
+	char *fileName;  //文件名（表名）
+	int fileNum;  //使用的分页文件数量
+	PF_FileHandle *file[5];  //最多5个分页文件的大小
+	*/
+
+	//存储记录的基本信息，与记录信息结构类似，使得打开文件后马上能获得记录管理信息，以后不需要多次访问记录管理页面
+	//但该信息需要及时更新
+	int recNum;
+	int recSize;
+	int recPerPage;
+	int recOffset;
+	int bitmapLength;  //控制页的位图大小（按字节计）
+	bitmanager *pageCtlBitmap;   //页面信息的位图管理对象
+	bitmanager *recCtlBitmap;    //记录信息的位图管理对象
+	PF_FileHandle *file;
 }RM_FileHandle;
 
 typedef struct{
