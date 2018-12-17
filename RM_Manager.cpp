@@ -4,6 +4,13 @@
 #include <cstring>
 #include <bitset>
 
+RC CloseScan(RM_FileScan *rmFileScan)
+{
+	rmFileScan->bOpen=false;
+	CloseFile(rmFileScan->pRMFileHandle->file);
+	return SUCCESS;
+}
+
 RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *conditions)//初始化扫描
 {
 	//若扫描已经打开
