@@ -55,7 +55,7 @@ typedef struct{//文件句柄
 
 	//存储记录的基本信息，与记录信息结构类似，使得打开文件后马上能获得记录管理信息，以后不需要多次访问记录管理页面
 	//但该信息需要及时更新
-	int recNum;
+	int *recNum;
 	int recSize;
 	int recPerPage;
 	int recOffset;
@@ -96,5 +96,9 @@ RC RM_CloseFile (RM_FileHandle *fileHandle);
 RC RM_OpenFile (char *fileName, RM_FileHandle *fileHandle);
 
 RC RM_CreateFile (char *fileName, int recordSize);
+
+bool CmpString(char *left, char *right, CompOp oper);
+
+bool CmpValue(float left, float right, CompOp oper);
 
 #endif
