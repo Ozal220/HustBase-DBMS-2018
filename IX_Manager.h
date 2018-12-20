@@ -17,8 +17,8 @@ typedef struct{
 // 索引句柄
 typedef struct{
 	bool bOpen;					// 是否与一个文件关联
-	PF_FileHandle fileHandle;	// 对应的页面文件句柄
-	IX_FileHeader fileHeader;	// 对应的控制页句柄
+	PF_FileHandle *fileHandle;	// 对应的页面文件句柄
+	IX_FileHeader *fileHeader;	// 对应的控制页句柄
 }IX_IndexHandle;
 
 
