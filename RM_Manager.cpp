@@ -329,13 +329,11 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 {
 	if(fileHandle->bOpen)  //若使用的句柄已经对应一个打开的文件
 		return RM_FHOPENNED;
-	PF_FileHandle *filePF=NULL;
-	if(openFile(fileName,filePF))
+	if(openFile(fileName,fileHandle->file))
 		return FAIL;
 	fileHandle->bOpen=TRUE;
 	//fileHandle->fileName=fileName;
 	//fileHandle->file[0]=filePF;
-	fileHandle->file=filePF;
 	//获取记录管理基本信息
 	PF_PageHandle *ctrPage=NULL;
 	if(GetThisPage(filePF,1,ctrPage))
