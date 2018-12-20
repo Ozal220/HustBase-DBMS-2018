@@ -4,28 +4,31 @@
 #include "RM_Manager.h"
 #include "PF_Manager.h"
 
+// 控制页句柄
 typedef struct{
-	int attrLength;
-	int keyLength;
-	AttrType attrType;
-	PageNum rootPage;
-	PageNum first_leaf;
-	int order;
+	int attrLength;			// 建立索引的属性值的长度
+	int keyLength;			// B+树中关键字的长度
+	AttrType attrType;		// 建立索引的属性值的类型
+	PageNum rootPage;		// B+树根结点的页面号
+	PageNum first_leaf;		// B+树第一个叶子节点的页面号
+	int order;				// 序数
 }IX_FileHeader;
 
+// 索引句柄
 typedef struct{
-	bool bOpen;
-	PF_FileHandle fileHandle;
-	IX_FileHeader fileHeader;
+	bool bOpen;					// 是否与一个文件关联
+	PF_FileHandle fileHandle;	// 对应的页面文件句柄
+	IX_FileHeader fileHeader;	// 对应的控制页句柄
 }IX_IndexHandle;
 
+
 typedef struct{
-	int is_leaf;
-	int keynum;
-	PageNum parent;
-	PageNum brother;
-	char *keys;
-	RID *rids;
+	int is_leaf;		// 该节点是否为叶子节点
+	int keynum;			// 包含的关键字个数
+	PageNum parent;		// 父节点页面号
+	PageNum brother;	// 兄弟结点页面号
+	char *keys;			// 关键字数组
+	RID *rids;			// em?
 }IX_Node;
 
 typedef struct{
