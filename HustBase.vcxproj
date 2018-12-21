@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bitmanager.cpp" />
     <ClCompile Include="EditArea.cpp" />
     <ClCompile Include="HustBase.cpp" />
     <ClCompile Include="HustBaseDoc.cpp" />
@@ -166,6 +167,7 @@
     <ResourceCompile Include="HustBase.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bitmanager.h" />
     <ClInclude Include="EditArea.h" />
     <ClInclude Include="HustBase.h" />
     <ClInclude Include="HustBaseDoc.h" />
