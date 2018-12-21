@@ -17,6 +17,16 @@ RC GetIndexTree(char *fileName, Tree *index){
 		return SUCCESS;
 }
 
+RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
+{
+	return FAIL;
+}
+
+RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
+{
+	return FAIL;
+}
+
 RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	if(CreateFile(fileName))
 		return FAIL;  

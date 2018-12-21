@@ -4,6 +4,8 @@
 #include <cstring>
 #include <bitset>
 
+//Dirty page 问题，Dirty page没有标记
+
 RC CloseScan(RM_FileScan *rmFileScan)
 {
 	rmFileScan->bOpen=false;
@@ -336,9 +338,9 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 	//fileHandle->file[0]=filePF;
 	//获取记录管理基本信息
 	PF_PageHandle *ctrPage=NULL;
-	if(GetThisPage(filePF,1,ctrPage))
+	if(GetThisPage(fileHandle->file,1,ctrPage))
 	{
-		CloseFile(filePF);
+		CloseFile(fileHandle->file);
 		return FAIL;
 	}
 	RM_recControl *recCtl;
@@ -351,7 +353,7 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 	//获取记录管理位图
 	fileHandle->recCtlBitmap=new bitmanager(fileHandle->bitmapLength,ctrPage->pFrame->page.pData+sizeof(RM_recControl));
 	//获取页面管理位图
-	fileHandle->pageCtlBitmap=new bitmanager(fileHandle->bitmapLength,filePF->pBitmap);
+	fileHandle->pageCtlBitmap=new bitmanager(fileHandle->bitmapLength,fileHandle->file->pBitmap);
 	/*
 	//确定总共多少个分页文件，需要读取
 	PF_PageHandle *ctrPage;

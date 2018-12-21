@@ -63,6 +63,9 @@
     <ClCompile Include="yacc_sql.tab.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="bitmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HustBase.rc">
@@ -125,6 +128,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bitmanager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
