@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "IX_Manager.h"
-// Ozel writing
+// 测试一下吾孜第二次连接git
 RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value){
 	return SUCCESS;
 }
