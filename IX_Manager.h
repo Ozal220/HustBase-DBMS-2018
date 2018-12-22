@@ -3,6 +3,7 @@
 
 #include "RM_Manager.h"
 #include "PF_Manager.h"
+#include <cstdlib>
 
 // 控制页句柄
 typedef struct{
@@ -65,5 +66,9 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid);
 RC CloseIndexScan(IX_IndexScan *indexScan);
 RC GetIndexTree(char *fileName, Tree *index);
+int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, AttrType type, int attrLength);
+int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
+//用于节点键值对排序中的插入移位
+int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
 
 #endif
