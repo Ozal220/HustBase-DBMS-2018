@@ -17,13 +17,29 @@ RC GetIndexTree(char *fileName, Tree *index){
 		return SUCCESS;
 }
 
+//12/24
 RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 {
+	//首先找到插入节点
+
+
+
+
+
+
+
+
+
+	//递归调用节点插入处理函数调整B+树结构
+
+
+
 	return FAIL;
 }
 
 RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 {
+
 	return FAIL;
 }
 
@@ -55,7 +71,7 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	ixNode->parent = 1;
 	ixNode->brother = 1;
 	ixNode->keys = (char *)(firstPage->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node));
-	ixNode->rids = (RID *)ixNode->keys+fileHeader->order*fileHeader->keyLength;
+	ixNode->rids = (RID *)(ixNode->keys+fileHeader->order*fileHeader->keyLength);
 	/*
 	// 紧接IX_Node结构之后，从pData[sizeof(IX_FileHeader)+ sizeof(IX_Node)]开始，存放B+树节点信息
 	Tree *bTree = (Tree *)(IX_FileHeader *)ctrPage->pFrame->page.pData[sizeof(IX_FileHeader)+ sizeof(IX_Node)];
@@ -190,4 +206,65 @@ int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyI
 	free(valBuffer);
 	//完成键值对的插入，返回新的节点有效数据大小
 	return ++(*effectiveLength);
+}
+
+//插入/删除中定位需要进行操作的节点，返回目标节点的页面句柄指针
+PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,char *targetKey)
+{
+	//定位根节点
+	int rootPage=indexHandle->fileHeader->rootPage;
+	PF_PageHandle *currentPage;
+	int rtn;
+	float targetVal,indexVal;
+	GetThisPage(indexHandle->fileHandle,rootPage,currentPage);
+	IX_Node *nodeInfo;
+	nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
+	int isLeaf=nodeInfo->is_leaf;
+	//一直遍历直至到达一个叶子节点
+	int offset;
+	while(isLeaf==0)
+	{
+		for(offset=0; offset<nodeInfo->keynum;offset++)
+		{
+			switch(indexHandle->fileHeader->attrType)
+			{
+			case 0:
+				rtn=strcmp(targetKey+sizeof(RID),
+					nodeInfo->keys+offset*indexHandle->fileHeader->keyLength+sizeof(RID));
+			case 1:
+			case 2:
+				targetVal=*(float *)(targetKey+sizeof(RID));
+				indexVal=*(float *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength+sizeof(RID));
+				rtn=(targetVal<indexVal)?-1:((targetVal==indexVal)?0:1);
+				break;
+			default:
+				break;
+			}
+			if(rtn>0)
+				continue; //遍历下一个键
+			else if(rtn==0)
+			{
+				//进一步比较rid
+				int currentPageNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength))->pageNum;
+				if(((RID *)targetKey)->pageNum>currentPageNum)
+					continue;
+				else if(((RID *)targetKey)->pageNum==currentPageNum)
+				{
+					int currentSlotNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength))->slotNum;
+					if(((RID *)targetKey)->slotNum>currentSlotNum)
+						continue;
+					if(((RID *)targetKey)->slotNum)
+						offset++;   //因为后面offset要减一，当输入的键在内节点（索引节点）中刚好存在时，
+					//使用其在节点内的上一个键对应的指针作为下一个考虑的子节点指针
+				}
+			}
+			//遍历相应的子节点
+			RID child=(RID)nodeInfo->rids[offset==0?0:offset-1];
+			GetThisPage(indexHandle->fileHandle,child.pageNum,currentPage);
+			nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
+			int isLeaf=nodeInfo->is_leaf;
+			break;
+		}
+	}
+	return currentPage;
 }
