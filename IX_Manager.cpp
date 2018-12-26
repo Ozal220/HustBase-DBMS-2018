@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "IX_Manager.h"
-// 测试一下吾孜第二次连接git
+// mtf是傻逼! 我打赌他找不到这一句
 RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value){
 	return SUCCESS;
 }
@@ -127,11 +127,9 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 					else if(((RID *)keyInsert)->pageNum>((RID *)key+keyOffset*attrLength)->pageNum)
 						continue;
 				}
-				return KeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
+				return insertKeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
 			}
-			//插入键比当前对比键大
-			else
-				continue;
+			//插入键比当前对比键大，则继续下一个循环
 		}
 		//比较keyOffset的值
 		break;
@@ -158,11 +156,9 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 					else if(((RID *)keyInsert)->pageNum>((RID *)key+keyOffset*attrLength)->pageNum)
 							continue;
 				}
-				return KeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
+				return insertKeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
 			}
-			//插入键比当前对比键大
-			else
-				continue;
+			//插入键比当前对比键大，则继续下一个循环
 		}
 		break;
 	default:
@@ -170,7 +166,76 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 	}
 }
 
-int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength)
+int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength){
+	int keyOffset;
+	switch (type)
+	{
+		
+		case 0: //字符串比较
+			for(keyOffset = 0; keyOffset < (*eLength); keyOffset++)
+			{
+				int rtn = strcmp(keyDelete + sizeof(RID), key + keyOffset*attrLength + sizeof(RID));
+				if(rtn < 0) // 如果要删除的keyDelete小于目前key则跳出循环
+					break;
+				else if(rtn == 0) // 找到对应的key
+				{
+					//进一步比较RID
+					if(((RID *)keyDelete)->pageNum == ((RID *)key + keyOffset * attrLength)->pageNum)	//页号
+					{
+						if(((RID *)keyDelete)->slotNum == ((RID *)key + keyOffset * attrLength)->slotNum) //槽号
+						{
+							//存在删除的key
+							return deleteKeyShift(keyOffset,key,val,eLength,attrLength);
+						}
+						// 如果keyDelete槽号小于目前key的槽号则跳出循环
+						else if(((RID *)keyDelete)->slotNum < ((RID *)key+keyOffset*attrLength)->slotNum)
+							break;
+						// 如果keyDelete槽号大于目前key的槽号则继续下一个循环
+					}
+					// 如果keyDelete页号小于目前key的页号则跳出循环
+					else if(((RID *)keyDelete)->pageNum < ((RID *)key + keyOffset * attrLength)->pageNum)
+						break;
+					// 如果keyDelete页号大于目前key的页号则继续下一个循环
+				}
+				// 如果要删除的keyDelete大于目前查找的key则进行下一个循环
+			}
+			break;
+		case 1:	//int
+		case 2:	//float
+			for(keyOffset = 0; keyOffset < (*eLength); keyOffset++)
+			{
+				int sub = *((float *)keyDelete + sizeof(RID)) - *((float *)(key + keyOffset*attrLength + sizeof(RID)));
+				if(sub < 0) // 如果要删除的keyDelete小于目前key则跳出循环
+					break;
+				else if(sub == 0) // 找到对应的key
+				{
+					//进一步比较RID
+					if(((RID *)keyDelete)->pageNum == ((RID *)key + keyOffset * attrLength)->pageNum)	//页号
+					{
+						if(((RID *)keyDelete)->slotNum == ((RID *)key + keyOffset * attrLength)->slotNum) //槽号
+						{
+							//存在删除的key
+							return deleteKeyShift(keyOffset,key,val,eLength,attrLength);
+						}
+						// 如果keyDelete槽号小于目前key的槽号则跳出循环
+						else if(((RID *)keyDelete)->slotNum < ((RID *)key+keyOffset*attrLength)->slotNum)
+							break;
+						// 如果keyDelete槽号大于目前key的槽号则继续下一个循环
+					}
+					// 如果keyDelete页号小于目前key的页号则跳出循环
+					else if(((RID *)keyDelete)->pageNum < ((RID *)key + keyOffset * attrLength)->pageNum)
+						break;
+					// 如果keyDelete页号大于目前key的页号则继续下一个循环
+				}
+				// 如果要删除的keyDelete大于目前查找的key则进行下一个循环
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+int insertKeyShift(int keyOffset, char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength)
 {
 	//关键字区域移位，由于每个节点已经多留一个空位，不需担心节点满的情况
 	char *buffer=(char *)malloc((*effectiveLength-keyOffset-1)*attrLength);
@@ -190,4 +255,21 @@ int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyI
 	free(valBuffer);
 	//完成键值对的插入，返回新的节点有效数据大小
 	return ++(*effectiveLength);
+}
+
+int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength){
+	// 关键字区域移动
+	char *buffer = (char *)malloc((*eLength - keyOffset - 1) * attrLength);
+	memcpy(buffer, key + (keyOffset + 1) * attrLength, (*eLength - keyOffset - 1) * attrLength); // +1 
+	memcpy(key + keyOffset * attrLength, buffer, (*eLength - keyOffset - 1) * attrLength);
+	free(buffer);
+
+	// 值区移动
+	RID *valBuffer=(RID *)malloc((*eLength - keyOffset - 1) * sizeof(RID));
+	memcpy(buffer, val + (keyOffset + 1) * sizeof(RID), (*eLength - keyOffset - 1) * sizeof(RID)); // +1
+	memcpy(val + keyOffset * sizeof(RID), buffer, (*eLength - keyOffset - 1) * sizeof(RID));
+	free(valBuffer);
+
+	//完成键值对的删除，返回新的节点有效数据大小
+	return --(*eLength);
 }
