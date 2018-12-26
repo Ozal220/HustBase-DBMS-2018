@@ -69,6 +69,7 @@ RC GetIndexTree(char *fileName, Tree *index);
 int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, AttrType type, int attrLength);
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
 //用于节点键值对排序中的插入移位
-int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
-
+int insertKeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
+//删除移位
+int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength);
 #endif
