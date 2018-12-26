@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "IX_Manager.h"
-// ²âÊÔÒ»ÏÂÎá×ÎµÚ¶ş´ÎÁ¬½Ógit
+// æµ‹è¯•ä¸€ä¸‹å¾å­œç¬¬äºŒæ¬¡è¿æ¥git
 RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value){
 	return SUCCESS;
 }
@@ -30,53 +30,53 @@ RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	if(CreateFile(fileName))
 		return FAIL;  
-	//Èç¹û³É¹¦
+	//å¦‚æœæˆåŠŸ
 	PF_FileHandle *file=NULL;
 	if(openFile((char *)fileName,file))
 		return FAIL;
-	//ÉêÇëĞÂÒ³ÃæÓÃÓÚ´æ·ÅË÷ÒıÊ×Ò³£¨¸ù½Úµã£©
+	//ç”³è¯·æ–°é¡µé¢ç”¨äºå­˜æ”¾ç´¢å¼•é¦–é¡µï¼ˆæ ¹èŠ‚ç‚¹ï¼‰
 	PF_PageHandle *firstPage=NULL;
 	if(AllocatePage(file,firstPage))
 		return FAIL;
-	// Ò³ÃæÉÏÌí¼Ó<Ë÷Òı¿ØÖÆĞÅÏ¢>£¬ÆäÖĞrootPageºÍfirst_leafÄ¬ÈÏÉèÎª1Ò³£¬ÓĞÎóºóÆÚ¸Ä
+	// é¡µé¢ä¸Šæ·»åŠ <ç´¢å¼•æ§åˆ¶ä¿¡æ¯>ï¼Œå…¶ä¸­rootPageå’Œfirst_leafé»˜è®¤è®¾ä¸º1é¡µï¼Œæœ‰è¯¯åæœŸæ”¹
 	IX_FileHeader *fileHeader = (IX_FileHeader *)firstPage->pFrame->page.pData;
 	fileHeader->attrLength = attrLength;
 	fileHeader->attrType = attrType;
 	fileHeader->first_leaf = 1;
 	fileHeader->keyLength = attrLength+sizeof(RID);
 	//why 2*sizeof(RID)
-	//¼õÒ»ÊÇÎªÁËÁô³öÒ»¸öÎ»ÖÃÊ¹µÃÃ¿¸ö½Úµã´æ´¢µÄ¹Ø¼ü×ÖÊı¿ÉÒÔÔİÊ±³¬¹ıÏŞÖÆ1¸ö
+	//å‡ä¸€æ˜¯ä¸ºäº†ç•™å‡ºä¸€ä¸ªä½ç½®ä½¿å¾—æ¯ä¸ªèŠ‚ç‚¹å­˜å‚¨çš„å…³é”®å­—æ•°å¯ä»¥æš‚æ—¶è¶…è¿‡é™åˆ¶1ä¸ª
 	fileHeader->order = (PF_PAGE_SIZE-sizeof(IX_FileHeader)-sizeof(IX_Node))/(2*sizeof(RID)+attrLength)-1;
 	fileHeader->rootPage = 1;				
-	// ÔÚ<Ë÷Òı¿ØÖÆĞÅÏ¢>ºóÌí¼Ó<½Úµã¿ØÖÆĞÅÏ¢>
+	// åœ¨<ç´¢å¼•æ§åˆ¶ä¿¡æ¯>åæ·»åŠ <èŠ‚ç‚¹æ§åˆ¶ä¿¡æ¯>
 	IX_Node *ixNode = (IX_Node *)(firstPage->pFrame->page.pData+sizeof(IX_FileHeader));
-	ixNode->is_leaf = 1;		// Ä¬ÈÏÎªÊÇÒ¶×Ó½áµã
+	ixNode->is_leaf = 1;		// é»˜è®¤ä¸ºæ˜¯å¶å­ç»“ç‚¹
 	ixNode->keynum = 0;
 	ixNode->parent = 1;
 	ixNode->brother = 1;
 	ixNode->keys = (char *)(firstPage->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node));
 	ixNode->rids = (RID *)ixNode->keys+fileHeader->order*fileHeader->keyLength;
 	/*
-	// ½ô½ÓIX_Node½á¹¹Ö®ºó£¬´ÓpData[sizeof(IX_FileHeader)+ sizeof(IX_Node)]¿ªÊ¼£¬´æ·ÅB+Ê÷½ÚµãĞÅÏ¢
+	// ç´§æ¥IX_Nodeç»“æ„ä¹‹åï¼Œä»pData[sizeof(IX_FileHeader)+ sizeof(IX_Node)]å¼€å§‹ï¼Œå­˜æ”¾B+æ ‘èŠ‚ç‚¹ä¿¡æ¯
 	Tree *bTree = (Tree *)(IX_FileHeader *)ctrPage->pFrame->page.pData[sizeof(IX_FileHeader)+ sizeof(IX_Node)];
 	bTree->attrLength = attrLength;
 	bTree->attrType = attrType;
 	bTree->order = (PF_PAGE_SIZE-sizeof(IX_FileHeader))/(2*sizeof(RID)+attrLength);
-	//bTree->root = null;   ¸ù½áµã´ÓÄÄ¿ªÊ¼
+	//bTree->root = null;   æ ¹ç»“ç‚¹ä»å“ªå¼€å§‹
 	*/
-	//¹Ø±Õ´ò¿ªµÄÎÄ¼ş
+	//å…³é—­æ‰“å¼€çš„æ–‡ä»¶
 	CloseFile(file);
 	return SUCCESS;
 }
 
 RC OpenIndex(const char *fileName,IX_IndexHandle *indexHandle) {
-	//ÅĞ¶ÏÎÄ¼şÊÇ·ñÒÑ´ò¿ª
-	if(indexHandle->bOpen)  //ÈôÊ¹ÓÃµÄ¾ä±úÒÑ¾­¶ÔÓ¦Ò»¸ö´ò¿ªµÄÎÄ¼ş
+	//åˆ¤æ–­æ–‡ä»¶æ˜¯å¦å·²æ‰“å¼€
+	if(indexHandle->bOpen)  //è‹¥ä½¿ç”¨çš„å¥æŸ„å·²ç»å¯¹åº”ä¸€ä¸ªæ‰“å¼€çš„æ–‡ä»¶
 		return RM_FHOPENNED;
 	if(openFile((char*)fileName,indexHandle->fileHandle))
 		return FAIL;
 	indexHandle->bOpen=TRUE;
-	//»ñÈ¡¼ÇÂ¼¹ÜÀí»ù±¾ĞÅÏ¢
+	//è·å–è®°å½•ç®¡ç†åŸºæœ¬ä¿¡æ¯
 	PF_PageHandle *ctrPage=NULL;
 	if(GetThisPage(indexHandle->fileHandle,1,ctrPage))
 	{
@@ -88,23 +88,23 @@ RC OpenIndex(const char *fileName,IX_IndexHandle *indexHandle) {
 }
 
 RC CloseIndex(IX_IndexHandle *indexHandle){
-	//ÈôÒÑ¾­¹Ø±Õ
+	//è‹¥å·²ç»å…³é—­
 	if(!indexHandle->bOpen)
 		return IX_ISCLOSED;
-	if(CloseFile(indexHandle->fileHandle))	// ÓÃfilename¹Ø±ÕÎÄ¼ş? ¹Ø±ÕÎÄ¼şÃ»ÓĞ¶ÔÓ¦µÄÊı¾İ½á¹¹
+	if(CloseFile(indexHandle->fileHandle))	// ç”¨filenameå…³é—­æ–‡ä»¶? å…³é—­æ–‡ä»¶æ²¡æœ‰å¯¹åº”çš„æ•°æ®ç»“æ„
 		return FAIL;
 	indexHandle->bOpen=FALSE;
 	return SUCCESS;
 }
 
-//attrLength °üÀ¨RIDµÄ³¤¶È
+//attrLength åŒ…æ‹¬RIDçš„é•¿åº¦
 int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, AttrType type, int attrLength)
 {
 	int keyOffset;
-	//±éÀúÒÑÓĞkey£¬ÕÒµ½²åÈëÎ»ÖÃ
+	//éå†å·²æœ‰keyï¼Œæ‰¾åˆ°æ’å…¥ä½ç½®
 	switch(type)
 	{
-	case 0://×Ö·û´®µÄ±È½Ï
+	case 0://å­—ç¬¦ä¸²çš„æ¯”è¾ƒ
 		for (keyOffset=0;keyOffset<(*effectiveLength);keyOffset++)
 		{
 			int rtn=strcmp(keyInsert+sizeof(RID),key+keyOffset*attrLength+sizeof(RID));
@@ -112,12 +112,12 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 			{
 				if(rtn==0)
 				{
-					//½øÒ»²½±È½ÏRID
+					//è¿›ä¸€æ­¥æ¯”è¾ƒRID
 					if(((RID *)keyInsert)->pageNum==((RID *)key+keyOffset*attrLength)->pageNum)
 					{
 						if(((RID *)keyInsert)->slotNum==((RID *)key+keyOffset*attrLength)->slotNum)
 						{
-							//Èô²åÈëµÄkeyÒÑ´æÔÚ£¬¸üĞÂÖµ£¨RID)
+							//è‹¥æ’å…¥çš„keyå·²å­˜åœ¨ï¼Œæ›´æ–°å€¼ï¼ˆRID)
 							*((RID *)(val+keyOffset*sizeof(RID)))=valInsert;
 							return *effectiveLength;
 						}
@@ -129,26 +129,26 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 				}
 				return KeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
 			}
-			//²åÈë¼ü±Èµ±Ç°¶Ô±È¼ü´ó
+			//æ’å…¥é”®æ¯”å½“å‰å¯¹æ¯”é”®å¤§
 			else
 				continue;
 		}
-		//±È½ÏkeyOffsetµÄÖµ
+		//æ¯”è¾ƒkeyOffsetçš„å€¼
 		break;
 	case 1:
-	case 2: //intÒÔ¼°floatµÄ±È½Ï
+	case 2: //intä»¥åŠfloatçš„æ¯”è¾ƒ
 		for (keyOffset=0;keyOffset<(*effectiveLength);keyOffset++)
 		{
 			if(*((float *)keyInsert+sizeof(RID))<=*((float *)(key+keyOffset*attrLength+sizeof(RID))))
 			{
 				if(*((float *)keyInsert+sizeof(RID))==*((float *)(key+keyOffset*attrLength+sizeof(RID))))
 				{
-					//½øÒ»²½±È½ÏRID
+					//è¿›ä¸€æ­¥æ¯”è¾ƒRID
 					if(((RID *)keyInsert)->pageNum==((RID *)key+keyOffset*attrLength)->pageNum)
 					{
 						if(((RID *)keyInsert)->slotNum==((RID *)key+keyOffset*attrLength)->slotNum)
 						{
-							//Èô²åÈëµÄkeyÒÑ´æÔÚ£¬¸üĞÂÖµ£¨RID)
+							//è‹¥æ’å…¥çš„keyå·²å­˜åœ¨ï¼Œæ›´æ–°å€¼ï¼ˆRID)
 							*((RID *)(val+keyOffset*sizeof(RID)))=valInsert;
 							return *effectiveLength;
 						}
@@ -160,7 +160,7 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 				}
 				return KeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
 			}
-			//²åÈë¼ü±Èµ±Ç°¶Ô±È¼ü´ó
+			//æ’å…¥é”®æ¯”å½“å‰å¯¹æ¯”é”®å¤§
 			else
 				continue;
 		}
@@ -172,22 +172,22 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID va
 
 int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength)
 {
-	//¹Ø¼ü×ÖÇøÓòÒÆÎ»£¬ÓÉÓÚÃ¿¸ö½ÚµãÒÑ¾­¶àÁôÒ»¸ö¿ÕÎ»£¬²»Ğèµ£ĞÄ½ÚµãÂúµÄÇé¿ö
+	//å…³é”®å­—åŒºåŸŸç§»ä½ï¼Œç”±äºæ¯ä¸ªèŠ‚ç‚¹å·²ç»å¤šç•™ä¸€ä¸ªç©ºä½ï¼Œä¸éœ€æ‹…å¿ƒèŠ‚ç‚¹æ»¡çš„æƒ…å†µ
 	char *buffer=(char *)malloc((*effectiveLength-keyOffset-1)*attrLength);
 	memcpy(buffer,key+keyOffset*attrLength,(*effectiveLength-keyOffset-1)*attrLength);
 	memset(key+keyOffset*attrLength,0,(*effectiveLength-keyOffset-1)*attrLength);
 	memcpy(key+(keyOffset+1)*attrLength,buffer,(*effectiveLength-keyOffset-1)*attrLength);
-	//¹Ø¼ü×ÖÇøÓò²åÈëĞÂµÄÊı¾İ
+	//å…³é”®å­—åŒºåŸŸæ’å…¥æ–°çš„æ•°æ®
 	strcpy(key+keyOffset*attrLength,keyInsert);
 	free(buffer);
-	//ÖµÇøÒÆÎ»
+	//å€¼åŒºç§»ä½
 	RID *valBuffer=(RID *)malloc((*effectiveLength-keyOffset-1)*sizeof(RID));
 	memcpy(buffer,val+keyOffset*sizeof(RID),(*effectiveLength-keyOffset-1)*sizeof(RID));
 	memset(val+keyOffset*sizeof(RID),0,(*effectiveLength-keyOffset-1)*sizeof(RID));
 	memcpy(val+(keyOffset+1)*sizeof(RID),buffer,(*effectiveLength-keyOffset-1)*sizeof(RID));
-	//ÖµÇø²åÈëĞÂÊı¾İ
+	//å€¼åŒºæ’å…¥æ–°æ•°æ®
 	*((RID *)(val+keyOffset*sizeof(RID)))=valInsert;
 	free(valBuffer);
-	//Íê³É¼üÖµ¶ÔµÄ²åÈë£¬·µ»ØĞÂµÄ½ÚµãÓĞĞ§Êı¾İ´óĞ¡
+	//å®Œæˆé”®å€¼å¯¹çš„æ’å…¥ï¼Œè¿”å›æ–°çš„èŠ‚ç‚¹æœ‰æ•ˆæ•°æ®å¤§å°
 	return ++(*effectiveLength);
 }
