@@ -346,7 +346,25 @@ int insertKeyShift(int keyOffset, char *key, RID *val, int *effectiveLength, cha
 	return ++(*effectiveLength);
 }
 
-//����/ɾ���ж�λ��Ҫ���в����Ľڵ㣬����Ŀ��ڵ��ҳ����ָ��
+int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength){
+	// 关键字区域移动
+	char *buffer = (char *)malloc((*eLength - keyOffset - 1) * attrLength);
+	memcpy(buffer, key + (keyOffset + 1) * attrLength, (*eLength - keyOffset - 1) * attrLength); // +1 
+	memcpy(key + keyOffset * attrLength, buffer, (*eLength - keyOffset - 1) * attrLength);
+	free(buffer);
+
+	// 值区移动
+	RID *valBuffer=(RID *)malloc((*eLength - keyOffset - 1) * sizeof(RID));
+	memcpy(buffer, val + (keyOffset + 1) * sizeof(RID), (*eLength - keyOffset - 1) * sizeof(RID)); // +1
+	memcpy(val + keyOffset * sizeof(RID), buffer, (*eLength - keyOffset - 1) * sizeof(RID));
+	free(valBuffer);
+
+	//完成键值对的删除，返回新的节点有效数据大小
+	return --(*eLength);
+
+}
+
+
 PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {
 	//定位根节点
@@ -358,7 +376,7 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 	IX_Node *nodeInfo;
 	nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
 	int isLeaf=nodeInfo->is_leaf;
-	//һֱ����ֱ������һ��Ҷ�ӽڵ�
+	
 	int offset;
 	while(isLeaf==0)
 	{
@@ -379,10 +397,9 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 				break;
 			}
 			if(rtn>0)
-				continue; //������һ����
+				continue; 
 			else if(rtn==0)
 			{
-				//��һ���Ƚ�rid
 				int currentPageNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength))->pageNum;
 				if(((RID *)targetKey)->pageNum>currentPageNum)
 					continue;
@@ -392,11 +409,9 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 					if(((RID *)targetKey)->slotNum>currentSlotNum)
 						continue;
 					if(((RID *)targetKey)->slotNum)
-						offset++;   //��Ϊ����offsetҪ��һ��������ļ����ڽڵ㣨�����ڵ㣩�иպô���ʱ��
-					//ʹ�����ڽڵ��ڵ���һ������Ӧ��ָ����Ϊ��һ�����ǵ��ӽڵ�ָ��
+						offset++;   
 				}
 			}
-			//������Ӧ���ӽڵ�
 			RID child=(RID)nodeInfo->rids[offset==0?0:offset-1];
 			GetThisPage(indexHandle->fileHandle,child.pageNum,currentPage);
 			nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
@@ -405,22 +420,4 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 		}
 	}
 	return currentPage;
-}
-
-int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength){
-	// 关键字区域移动
-	char *buffer = (char *)malloc((*eLength - keyOffset - 1) * attrLength);
-	memcpy(buffer, key + (keyOffset + 1) * attrLength, (*eLength - keyOffset - 1) * attrLength); // +1 
-	memcpy(key + keyOffset * attrLength, buffer, (*eLength - keyOffset - 1) * attrLength);
-	free(buffer);
-
-	// 值区移动
-	RID *valBuffer=(RID *)malloc((*eLength - keyOffset - 1) * sizeof(RID));
-	memcpy(buffer, val + (keyOffset + 1) * sizeof(RID), (*eLength - keyOffset - 1) * sizeof(RID)); // +1
-	memcpy(val + keyOffset * sizeof(RID), buffer, (*eLength - keyOffset - 1) * sizeof(RID));
-	free(valBuffer);
-
-	//完成键值对的删除，返回新的节点有效数据大小
-	return --(*eLength);
-
 }
