@@ -18,7 +18,7 @@ RC GetIndexTree(char *fileName, Tree *index){
 }
 
 //12/24
-RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
+RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID *rid)
 {
 	//�����ҵ�����ڵ�
 
@@ -37,9 +37,9 @@ RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 	return FAIL;
 }
 
-RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
+RC DeleteEntry(IX_IndexHandle *indexHandle, void *pData, const RID *rid)
 {
-
+	
 	return FAIL;
 }
 
@@ -274,6 +274,24 @@ int insertKeyShift(int keyOffset, char *key, RID *val, int *effectiveLength, cha
 	return ++(*effectiveLength);
 }
 
+int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength){
+	// 关键字区域移动
+	char *buffer = (char *)malloc((*eLength - keyOffset - 1) * attrLength);
+	memcpy(buffer, key + (keyOffset + 1) * attrLength, (*eLength - keyOffset - 1) * attrLength); // +1 
+	memcpy(key + keyOffset * attrLength, buffer, (*eLength - keyOffset - 1) * attrLength);
+	free(buffer);
+
+	// 值区移动
+	RID *valBuffer=(RID *)malloc((*eLength - keyOffset - 1) * sizeof(RID));
+	memcpy(buffer, val + (keyOffset + 1) * sizeof(RID), (*eLength - keyOffset - 1) * sizeof(RID)); // +1
+	memcpy(val + keyOffset * sizeof(RID), buffer, (*eLength - keyOffset - 1) * sizeof(RID));
+	free(valBuffer);
+
+	//完成键值对的删除，返回新的节点有效数据大小
+	return --(*eLength);
+
+}
+
 //����/ɾ���ж�λ��Ҫ���в����Ľڵ㣬����Ŀ��ڵ��ҳ����ָ��
 PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,char *targetKey)
 {
@@ -333,22 +351,4 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,char *targetKey)
 		}
 	}
 	return currentPage;
-}
-
-int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength){
-	// 关键字区域移动
-	char *buffer = (char *)malloc((*eLength - keyOffset - 1) * attrLength);
-	memcpy(buffer, key + (keyOffset + 1) * attrLength, (*eLength - keyOffset - 1) * attrLength); // +1 
-	memcpy(key + keyOffset * attrLength, buffer, (*eLength - keyOffset - 1) * attrLength);
-	free(buffer);
-
-	// 值区移动
-	RID *valBuffer=(RID *)malloc((*eLength - keyOffset - 1) * sizeof(RID));
-	memcpy(buffer, val + (keyOffset + 1) * sizeof(RID), (*eLength - keyOffset - 1) * sizeof(RID)); // +1
-	memcpy(val + keyOffset * sizeof(RID), buffer, (*eLength - keyOffset - 1) * sizeof(RID));
-	free(valBuffer);
-
-	//完成键值对的删除，返回新的节点有效数据大小
-	return --(*eLength);
-
 }
