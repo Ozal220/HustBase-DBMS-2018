@@ -1,20 +1,151 @@
 #include "stdafx.h"
 #include "IX_Manager.h"
+#include "RM_Manager.h" //使用比较函数
 
-RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value){
+/****************
+*optimization notepad
+*1.索引插入的返回值（失败的条件）
+*2.索引插入的左兄弟情况
+*3.索引插入的旋转操作
+*4.索引插入打断指针的情况
+****************/
+
+//12/27
+RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value)
+{
+	//初始化其他属性值
+	indexScan->bOpen=true;
+	indexScan->compOp=compOp;
+	indexScan->pIXIndexHandle=indexHandle;
+	indexScan->value=value;
+	PF_PageHandle *pageStart;
+	//初始化页面号、索引项编号、页面句柄
+	switch (compOp) //小于、小于等于与等于从最小的索引项开始查找
+	{
+	case NO_OP:
+	case LEqual:
+	case LessT:
+		indexScan->pnNext=indexHandle->fileHeader->first_leaf;
+		indexScan->ridIx=0;
+		GetThisPage(indexHandle->fileHandle,indexScan->pnNext,pageStart);
+		indexScan->pfPageHandle=pageStart;
+		indexScan->currentPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));
+		return SUCCESS;
+	default:
+		break;
+	}
+	pageStart=FindNode(indexHandle,value);  //找到搜索开始的索引值所在节点
+	IX_Node *startPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));  //获得开始页的索引记录信息
+	int indexOffset,rtn;
+	float targetVal,indexVal;
+	for(indexOffset=0;indexOffset<startPageControl->keynum;indexOffset++)
+	{
+		switch(indexHandle->fileHeader->attrType)
+		{
+		case 0:
+			rtn=strcmp((char *)value,
+				startPageControl->keys+indexOffset*indexHandle->fileHeader->keyLength+sizeof(RID));
+		case 1:
+		case 2:
+			targetVal=*(float *)value;
+			indexVal=*(float *)(startPageControl->keys+indexOffset*indexHandle->fileHeader->keyLength+sizeof(RID));
+			rtn=(targetVal<indexVal)?-1:((targetVal==indexVal)?0:1);
+			break;
+		default:
+			break;
+		}
+		if(rtn==0)
+		{
+			indexScan->pnNext=pageStart->pFrame->page.pageNum;
+			indexScan->ridIx=(compOp==EQual||compOp==GEqual)?indexOffset:indexOffset+1;
+			indexScan->pfPageHandle=pageStart;
+			indexScan->currentPageControl=startPageControl;
+			return SUCCESS;
+		}
+		else if(rtn<0)
+		{
+			if(compOp==EQual)
+				return FAIL;
+			else
+			{
+				indexScan->pnNext=pageStart->pFrame->page.pageNum;
+				indexScan->ridIx=indexOffset;
+				indexScan->pfPageHandle=pageStart;
+				indexScan->currentPageControl=startPageControl;
+				return SUCCESS;
+			}
+		}
+	}
+	if(indexOffset==startPageControl->keynum)  //这是一种情况，当目标值大于某节点的所有值，而小于其右兄弟节点的最小值
+	{
+		if(compOp==EQual)
+			return FAIL;
+		else
+		{
+			indexScan->pnNext=startPageControl->brother;
+			indexScan->ridIx=0;
+			GetThisPage(indexHandle->fileHandle,startPageControl->brother,indexScan->pfPageHandle);
+			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
+			return SUCCESS;
+		}
+	}
 	return SUCCESS;
 }
 
-RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid){
+//检查比较策略
+RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid)
+{
+	if(indexScan->ridIx==indexScan->currentPageControl->keynum)
+	{
+		if(indexScan->currentPageControl->brother==-1)
+			return FAIL;
+		else
+		{
+			indexScan->pnNext=indexScan->currentPageControl->brother;
+			GetThisPage(indexScan->pIXIndexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
+			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
+			indexScan->ridIx=0;
+		}
+	}
+	if(indexScan->compOp!=NO_OP)
+	{
+		switch (indexScan->pIXIndexHandle->fileHeader->attrType)
+		{
+		case chars:
+			if(!CmpString(indexScan->currentPageControl->keys+
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID),
+				indexScan->value,
+				indexScan->compOp))
+				return FAIL;
+		case ints:
+		case floats:
+			if(!CmpValue(*(float *)(indexScan->currentPageControl->keys+
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID)),
+				*(float *)indexScan->value,
+				indexScan->compOp))
+				return FAIL;
+			break;
+		}
+	}
+	rid->bValid=true;
+	rid->pageNum=indexScan->pnNext;
+	rid->slotNum=indexScan->ridIx;
+	indexScan->ridIx++;
 	return SUCCESS;
 }
 
 RC CloseIndexScan(IX_IndexScan *indexScan){	
+	indexScan->bOpen=false;
+	indexScan->pfPageHandle->pFrame->bDirty=false;
+    CloseIndex(indexScan->pIXIndexHandle);
 	return SUCCESS;
 }
 
-RC GetIndexTree(char *fileName, Tree *index){
-		return SUCCESS;
+//ctmd老子不想写了
+RC GetIndexTree(char *fileName, Tree *index)
+{
+
+	return SUCCESS;
 }
 
 //12/24
@@ -101,9 +232,19 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 	}
 }
 
+/*******
+*就剩你了吾孜!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*/
 RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
-{
-	
+{/*    ↑
+	   |
+	   |
+     I'm so lonely, all my brothers have been implemented,
+	 but I still remain in a state of prototype.
+	 I feel like I was abandoned by Wuzi, so sad o(╥﹏╥)o
+ */
 	return FAIL;
 }
 
@@ -124,7 +265,6 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	fileHeader->attrType = attrType;
 	fileHeader->first_leaf = 1;
 	fileHeader->keyLength = attrLength+sizeof(RID);
-	//why 2*sizeof(RID)
 	//减一是为了留出一个位置使得每个节点存储的关键字数可以暂时超过限制1个
 	fileHeader->order = (PF_PAGE_SIZE-sizeof(IX_FileHeader)-sizeof(IX_Node))/(2*sizeof(RID)+attrLength)-1;
 	fileHeader->rootPage = 1;				
@@ -180,71 +320,49 @@ RC CloseIndex(IX_IndexHandle *indexHandle){
 //attrLength 包括RID的长度
 int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, AttrType type, int attrLength)
 {
-	int keyOffset;
+	int keyOffset,rtn;
+	float newValue,valueInIndex;
 	//遍历已有key，找到插入位置
-	switch(type)
+
+	for (keyOffset=0;keyOffset<(*effectiveLength);keyOffset++)
 	{
-	case 0://字符串的比较
-		for (keyOffset=0;keyOffset<(*effectiveLength);keyOffset++)
+		switch(type)
 		{
-			int rtn=strcmp(keyInsert+sizeof(RID),key+keyOffset*attrLength+sizeof(RID));
-			if(rtn<=0)
+		case 0://字符串的比较
+			rtn=strcmp(keyInsert+sizeof(RID),key+keyOffset*attrLength+sizeof(RID));
+			break;
+		case 1:
+		case 2: //int以及float的比较
+			newValue=*((float *)keyInsert+sizeof(RID));
+			valueInIndex=*((float *)(key+keyOffset*attrLength+sizeof(RID)));
+			rtn=(newValue<valueInIndex)?-1:((newValue==valueInIndex)?0:1);
+			break;
+		default:
+			break;
+		}
+		if(rtn<=0)
+		{
+			if(rtn==0)
 			{
-				if(rtn==0)
+				//进一步比较RID
+				if(((RID *)keyInsert)->pageNum==((RID *)key+keyOffset*attrLength)->pageNum)
 				{
-					//进一步比较RID
-					if(((RID *)keyInsert)->pageNum==((RID *)key+keyOffset*attrLength)->pageNum)
+					if(((RID *)keyInsert)->slotNum==((RID *)key+keyOffset*attrLength)->slotNum)
 					{
-						if(((RID *)keyInsert)->slotNum==((RID *)key+keyOffset*attrLength)->slotNum)
-						{
-							//若插入的key已存在，更新值（RID)
-							*((RID *)(val+keyOffset*sizeof(RID)))=*valInsert;
-							return keyOffset;
-						}
-						else if(((RID *)keyInsert)->slotNum>((RID *)key+keyOffset*attrLength)->slotNum)
-							continue;
+						//若插入的key已存在，更新值（RID)
+						*((RID *)(val+keyOffset*sizeof(RID)))=*valInsert;
+						return keyOffset;
 					}
-					else if(((RID *)keyInsert)->pageNum>((RID *)key+keyOffset*attrLength)->pageNum)
+					else if(((RID *)keyInsert)->slotNum>((RID *)key+keyOffset*attrLength)->slotNum)
 						continue;
 				}
-				*effectiveLength=insertKeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
-				return keyOffset;
+				else if(((RID *)keyInsert)->pageNum>((RID *)key+keyOffset*attrLength)->pageNum)
+					continue;
 			}
-			//插入键比当前对比键大，则继续下一个循环
+			*effectiveLength=insertKeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
+			return keyOffset;
 		}
-		//比较keyOffset的值
-		break;
-	case 1:
-	case 2: //int以及float的比较
-		for (keyOffset=0;keyOffset<(*effectiveLength);keyOffset++)
-		{
-			if(*((float *)keyInsert+sizeof(RID))<=*((float *)(key+keyOffset*attrLength+sizeof(RID))))
-			{
-				if(*((float *)keyInsert+sizeof(RID))==*((float *)(key+keyOffset*attrLength+sizeof(RID))))
-				{
-					//进一步比较RID
-					if(((RID *)keyInsert)->pageNum==((RID *)key+keyOffset*attrLength)->pageNum)
-					{
-						if(((RID *)keyInsert)->slotNum==((RID *)key+keyOffset*attrLength)->slotNum)
-						{
-							//若插入的key已存在，更新值（RID)
-							*((RID *)(val+keyOffset*sizeof(RID)))=*valInsert;
-							return keyOffset;
-						}
-						else if(((RID *)keyInsert)->slotNum>((RID *)key+keyOffset*attrLength)->slotNum)
-							continue;
-					}
-					else if(((RID *)keyInsert)->pageNum>((RID *)key+keyOffset*attrLength)->pageNum)
-							continue;
-				}
-				*effectiveLength=insertKeyShift(keyOffset,key,val,effectiveLength,keyInsert,valInsert,attrLength);
-				return keyOffset;
-			}
-			//插入键比当前对比键大，则继续下一个循环
-		}
-		break;
-	default:
-		break;
+		//插入键比当前对比键大，则继续下一个循环
 	}
 }
 
@@ -357,7 +475,6 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 	return --(*eLength);
 
 }
-
 
 PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {

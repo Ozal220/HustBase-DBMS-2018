@@ -37,8 +37,10 @@ typedef struct{
 	IX_IndexHandle *pIXIndexHandle;	//指向索引文件操作的指�?
 	CompOp compOp;  /* 用于比较的操作符*/
 	char *value;		 /* 与属性行比较的�?*/
-    PF_PageHandle pfPageHandles[PF_BUFFER_SIZE]; // 固定在缓冲区页面所对应的页面操作列�?
+    PF_PageHandle *pfPageHandle; // 固定在缓冲区页面所对应的页面操作列�?
 	PageNum pnNext; 	//下一个将要被读入的页面号
+	int ridIx;
+	IX_Node *currentPageControl; //指向当前页面的索引管理信息
 }IX_IndexScan;
 
 typedef struct Tree_Node{
@@ -66,6 +68,9 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid);
 RC CloseIndexScan(IX_IndexScan *indexScan);
 RC GetIndexTree(char *fileName, Tree *index);
+
+
+
 int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, AttrType type, int attrLength);
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
 
