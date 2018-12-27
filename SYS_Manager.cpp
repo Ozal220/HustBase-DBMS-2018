@@ -149,20 +149,31 @@ RC execute(char * sql){
 }
 
 RC CreateDB(char *dbpath,char *dbname){//包括2个系统文件、0到多个记录文件和0到多个索引文件
-	if(_access(strcat(dbpath,strcat("\\",dbname)),0)==-1){//文件夹不存在
 	    if(CreateDirectory(strcat(dbpath,strcat("\\",dbname)),NULL)==SUCCESS){
-			if(RM_CreateFile(strcat(strcat(dbpath,strcat("\\",dbname)),"\\SYSTABLES"),25)==SUCCESS&&RM_CreateFile(strcat(strcat(dbpath,strcat("\\",dbname)),"\\SYSCOLUMNS"),76)==SUCCESS)		
-				strcpy(path,dbpath);
-			    strcpy(db,dbname);
+			SetCurrentDirectory(strcat(dbpath,strcat("\\",dbname)));
+			if(RM_CreateFile("SYSTABLES",sizeof(tab))==SUCCESS&&RM_CreateFile("SYSCOLUMNS",sizeof(col))==SUCCESS)		
 			    return SUCCESS;
 		}
-	}
+		return SQL_SYNTAX;
 }
 
 RC DropDB(char *dbname){
-	if(_access(strcat(path,strcat("\\",dbname)),0)==0)//文件夹存在
-		if(RemoveDirectory(strcat(path,strcat("\\",dbname)))==SUCCESS)
-	        return SUCCESS;
+	CFileFind find;
+	bool isfinded=find.FindFile(strcat(dbname,"\\*.*"));
+	while(isfinded){
+		isfinded=find.FindNextFile();
+		if(find.IsDots()){
+			if(!find.IsDirectory()){
+				DropTable(strcat(strcat(dbname,"\\"),find.GetFileName().GetBuffer(200)));
+			}
+		}
+		else{
+			DeleteFile(strcat(strcat(dbname,"\\"),find.GetFileName().GetBuffer(200)));
+		}
+	}
+	find.Close();
+	if(RemoveDirectory(dbname))return SUCCESS;
+	else return SQL_SYNTAX;
 }
 
 RC OpenDB(char *dbname){
@@ -194,27 +205,53 @@ RC CreateTable(char *relName,int attrCount,AttrInfo *attributes){
 			}
 		}
 		fclose(fp1);
-		fclose(fp2);*/
-	    RM_FileHandle *file1,*file2;
-	    int length=0;
-		if(RM_OpenFile(strcat(strcat(path,strcat("\\",db)),"\\SYSTABLES"),file1)==SUCCESS){//添加系统表文件相关信息
-			strcpy(tab.tablename,relName);
-		    tab.attrcount=attrCount;
-			char* pdata=tab;
-			RID* rid;
-			InsertRec(file1,,rid);
-		}
-		if(RM_OpenFile(strcat(strcat(path,strcat("\\",db)),"\\SYSTABLES"),file1)==SUCCESS){//添加系统列文件相关信息
-			   strcpy(col.tablename,relName);
-			   strcpy(col.attrname,attributes[i].attrName);
-			   col.attrtype=attributes[i].attrType;
-			   col.attrlength=attributes[i].attrLength;
-			   length+=attributes[i].attrLength;
-			   col.attroffset=i*76;
-			   col.ix_flag='0';
-		}
+		fclose(fp2);
 		//创建对应的记录文件
-		if(RM_CreateFile(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)),length)==true)return SUCCESS;
+		if(RM_CreateFile(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)),length)==true)return SUCCESS;*/
+	char  *pData;
+	RM_FileHandle *rm_table, *rm_column;
+	RID *rid;
+	int recordsize;//记录的大小
+	AttrInfo *attrtmp = attributes;
+	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统表文件
+	rm_table->bOpen = false;
+	if(RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
+	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统列文件
+	rm_column->bOpen = false;
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS)return SQL_SYNTAX;
+	pData = (char *)malloc(sizeof(tab));//增加系统表文件信息
+	memcpy(pData, relName,21);
+	memcpy(pData + 21, &attrCount, sizeof(int));
+	rid = (RID *)malloc(sizeof(RID));
+	rid->bValid = false;
+	if (InsertRec(rm_table, pData, rid) != SUCCESS)return SQL_SYNTAX;
+	if (RM_CloseFile(rm_table) != SUCCESS)return SQL_SYNTAX;
+	free(rm_table);
+	free(pData);
+	free(rid);
+	for (int i=0,offset=0;i<attrCount;++i,++attrtmp){//增加系统列文件信息
+		pData = (char *)malloc(sizeof(col));
+		memcpy(pData, relName,21);
+		memcpy(pData+21, attributes[i].attrName,21);
+		memcpy(pData+42, &(attrtmp->attrType),sizeof(int));
+		memcpy(pData+42+sizeof(int),&(attrtmp->attrLength),sizeof(int));
+		memcpy(pData+42+2*sizeof(int),&offset,sizeof(int));
+		memcpy(pData+42+3*sizeof(int),"0",sizeof(char));
+		rid = (RID *)malloc(sizeof(RID));
+		rid->bValid = false;
+		if (InsertRec(rm_column, pData, rid) != SUCCESS)return SQL_SYNTAX;
+		free(pData);
+		free(rid);
+		offset +=attrtmp->attrLength;
+	}
+	if (RM_CloseFile(rm_column) != SUCCESS)return SQL_SYNTAX;
+	free(rm_column);
+	recordsize=0;//建立对应的记录文件
+	for (int i=0; i<attrCount;++i){
+		recordsize +=attributes[i].attrLength;
+	}
+	if (RM_CreateFile(relName, recordsize) != SUCCESS)return SQL_SYNTAX;
+	return SUCCESS;	
 }
 
 RC DropTable(char *relName){
@@ -250,11 +287,43 @@ RC DropTable(char *relName){
 		fwrite(&col,sizeof(struct column),1,fp1);
 	}
 	fclose(fp1);
-	fclose(fp2);*/
+	fclose(fp2);
 	//删除表
 	if(remove(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)
 	//删除索引
-	if(RemoveDirectory(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)return SUCCESS;
+	if(RemoveDirectory(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)return SUCCESS;*/
+	CFile tmp;
+	RM_FileHandle *rm_table, *rm_column;
+	RC rc;
+	RM_FileScan FileScan;
+	RM_Record rectab, reccol;
+	tmp.Remove((LPCTSTR)relName);//删除数据表文件
+	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统表文件
+	rm_table->bOpen = false;
+	if(RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
+	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统列文件
+	rm_column->bOpen = false;
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS)return SQL_SYNTAX;
+	FileScan.bOpen = false;//打开系统表文件进行扫描，删除同名表的记录项
+	if (OpenScan(&FileScan, rm_table,0,NULL)!= SUCCESS)return SQL_SYNTAX;
+	while(GetNextRec(&FileScan, &rectab)==SUCCESS){
+		if (strcmp(relName, rectab.pData)==0){//符合条件则删除该项
+			DeleteRec(rm_table,&(rectab.rid));
+			break;//因为只有一项，所以直接跳出
+		}
+	}
+	FileScan.bOpen = false;//打开系统列文件进行扫描，删除同名表的记录项
+	if (OpenScan(&FileScan, rm_column,0,NULL) != SUCCESS)return SQL_SYNTAX;
+	while(GetNextRec(&FileScan, &reccol) == SUCCESS){
+		if (strcmp(relName, reccol.pData) == 0){//符合条件则删除该项
+			DeleteRec(rm_column, &(reccol.rid));//因为表可能有多个列，所以要遍历
+		}
+	}
+	if (RM_CloseFile(rm_table)!=SUCCESS)return SQL_SYNTAX;//关闭文件句柄
+	free(rm_table);
+	if (RM_CloseFile(rm_column)!=SUCCESS)return SQL_SYNTAX;
+	free(rm_column);
+	return SUCCESS;
 }
 
 RC CreateIndex(char *indexName,char *relName,char *attrName){//对索引项排序
