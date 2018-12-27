@@ -1,11 +1,18 @@
 #include "stdafx.h"
 #include "IX_Manager.h"
 
-RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value){
+//插入索引函数的返回值需要修改，判定插入失败的情况
+
+//12/27
+RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp compOp,char *value)
+{
+	//初始化其他属性值
+	//初始化
 	return SUCCESS;
 }
 
 RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid){
+	
 	return SUCCESS;
 }
 
@@ -124,7 +131,6 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	fileHeader->attrType = attrType;
 	fileHeader->first_leaf = 1;
 	fileHeader->keyLength = attrLength+sizeof(RID);
-	//why 2*sizeof(RID)
 	//减一是为了留出一个位置使得每个节点存储的关键字数可以暂时超过限制1个
 	fileHeader->order = (PF_PAGE_SIZE-sizeof(IX_FileHeader)-sizeof(IX_Node))/(2*sizeof(RID)+attrLength)-1;
 	fileHeader->rootPage = 1;				
