@@ -358,7 +358,6 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 
 }
 
-
 PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {
 	//定位根节点
