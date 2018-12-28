@@ -245,7 +245,69 @@ RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 	 but I still remain in a state of prototype.
 	 I feel like I was abandoned by Wuzi, so sad o(╥﹏╥)o
  */
-	return FAIL;
+	PF_PageHandle *pageDelete = FindNode(indexHandle, pData); //根据输入的数据找到即将操作的节点
+	//调用递归函数
+	return RecursionDelete(indexHandle, pData, rid, pageDelete);
+}
+
+//索引删除的递归调用
+RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_PageHandle *pageDelete)
+{
+	IX_Node *pageControl = (IX_Node *)(pageDelete->pFrame->page.pData + sizeof(IX_FileHeader));			// 获得当前页的索引记录信息
+	int offset = deleteKey(pageControl->keys, pageControl->rids, &pageControl->keynum, (char *)pData,
+							 indexHandle->fileHeader->attrType, indexHandle->fileHeader->keyLength);	// 删除对应的索引项
+	if (-1 == offset) // 如果该键不存在
+		return FAIL;
+	// 该key存在，并已在叶子结点删除。进行下一步判断
+	// 每个内部节点的分支数范围为[ceil(m/2),m]; 是否符合该规定
+	if(pageControl->keynum >= ceil((float)indexHandle->fileHeader->order / 2))							// 索引项数符合规定
+	{
+		if(offset == 0)	// 删除的是页面的第一个结点,需调整父页面的值	
+			changeParentsFirstKey(indexHandle, pageControl, indexHandle->fileHeader->attrLength);
+		return SUCCESS;		// 返回成功,不用调整父页面的值
+	}  
+	else
+	{
+		//索引项数小于ceil[m/2],结合索引
+		
+	}
+}
+// TO-DO : 确认覆盖方式。
+void changeParentsFirstKey(IX_IndexHandle *indexHandle, IX_Node *node, const int attrLength)
+{
+	IX_Node *parentNode;
+	PF_PageHandle *parentPage;
+	char *parentData;
+	char *parentKeys;
+	bool rootFlag = true;		//因循环判断条件不包含根节点，用一个标志来进行根的key覆盖
+	while(indexHandle->fileHeader->rootPage != node->parent) // 循环至根的子结点
+	{
+		GetThisPage(indexHandle->fileHandle, node->parent, parentPage);
+		GetData(parentPage, &parentData);
+		parentNode = (IX_Node*)(parentData + sizeof(IX_FileHeader));	
+		// 获取关键字区
+		parentKeys = parentData + sizeof(IX_FileHeader) + sizeof(IX_Node);
+		// 对父节点关键字进行覆盖
+		// parentNode->keys + offset * attrLength /* + sizeof(RID) */ = node->keys;
+		if (node->parentOrder > 0)
+		{
+			rootFlag = false;
+			break;
+		}
+		else {
+			node = parentNode;	//可以这样赋值吗
+		}
+	}
+	if (rootFlag && (0 == node->parentOrder))
+	{
+		GetThisPage(indexHandle->fileHandle, node->parent, parentPage);
+		GetData(parentPage, &parentData);
+		parentNode = (IX_Node*)(parentData + sizeof(IX_FileHeader));	
+		// 获取关键字区
+		parentKeys = parentData + sizeof(IX_FileHeader) + sizeof(IX_Node);
+		// 对父节点关键字进行覆盖
+		// parentNode->keys + offset * attrLength /* + sizeof(RID) */ = node->keys;
+	}
 }
 
 RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
@@ -273,7 +335,9 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	ixNode->is_leaf = 1;		// 默认为是叶子结点
 	ixNode->keynum = 0;
 	ixNode->parent = 0;
-	ixNode->brother = -1;
+	ixNode->parentOrder = 0;
+	ixNode->rightBrother = -1;
+	ixNode->leftBrother = -1;
 	ixNode->keys = (char *)(firstPage->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node));
 	ixNode->rids = (RID *)(ixNode->keys+(fileHeader->order+1)*fileHeader->keyLength);  //+1很重要，因为留出了一个单位的空间用于平衡节点的调度
 	/*
@@ -369,9 +433,8 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const R
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength){
 	int keyOffset;
 	switch (type)
-	{
-		
-		case 0: //字符串比较
+	{	
+		case chars: //字符串比较
 			for(keyOffset = 0; keyOffset < (*eLength); keyOffset++)
 			{
 				int rtn = strcmp(keyDelete + sizeof(RID), key + keyOffset*attrLength + sizeof(RID));
@@ -385,23 +448,24 @@ int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type,
 						if(((RID *)keyDelete)->slotNum == ((RID *)key + keyOffset * attrLength)->slotNum) //槽号
 						{
 							//存在删除的key
-							return deleteKeyShift(keyOffset,key,val,eLength,attrLength);
-							}
-						// 如果keyDelete槽号小于目前key的槽号则跳出循环
+							deleteKeyShift(keyOffset,key,val,eLength,attrLength);
+							return keyOffset;
+						}
+						// 如果keyDelete槽号小于目前key的槽号则退出并返回-1
 						else if(((RID *)keyDelete)->slotNum < ((RID *)key+keyOffset*attrLength)->slotNum)
-							break;
+							return -1;
 						// 如果keyDelete槽号大于目前key的槽号则继续下一个循环
 					}
-					// 如果keyDelete页号小于目前key的页号则跳出循环
+					// 如果keyDelete页号小于目前key的页号则退出并返回-1
 					else if(((RID *)keyDelete)->pageNum < ((RID *)key + keyOffset * attrLength)->pageNum)
-						break;
+						return -1;
 					// 如果keyDelete页号大于目前key的页号则继续下一个循环
 				}
 				// 如果要删除的keyDelete大于目前查找的key则进行下一个循环
 			}
 			break;
-		case 1:	//int
-		case 2:	//float
+		case ints:	//int
+		case floats:	//float
 			for(keyOffset = 0; keyOffset < (*eLength); keyOffset++)
 			{
 				int sub = *((float *)keyDelete + sizeof(RID)) - *((float *)(key + keyOffset*attrLength + sizeof(RID)));
@@ -415,16 +479,17 @@ int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type,
 						if(((RID *)keyDelete)->slotNum == ((RID *)key + keyOffset * attrLength)->slotNum) //槽号
 						{
 							//存在删除的key
-							return deleteKeyShift(keyOffset,key,val,eLength,attrLength);
+							deleteKeyShift(keyOffset,key,val,eLength,attrLength);
+							return keyOffset;
 						}
 						// 如果keyDelete槽号小于目前key的槽号则跳出循环
 						else if(((RID *)keyDelete)->slotNum < ((RID *)key+keyOffset*attrLength)->slotNum)
-							break;
+							return -1;
 						// 如果keyDelete槽号大于目前key的槽号则继续下一个循环
 					}
 					// 如果keyDelete页号小于目前key的页号则跳出循环
 					else if(((RID *)keyDelete)->pageNum < ((RID *)key + keyOffset * attrLength)->pageNum)
-						break;
+						return -1;
 					// 如果keyDelete页号大于目前key的页号则继续下一个循环
 				}
 				// 如果要删除的keyDelete大于目前查找的key则进行下一个循环
@@ -472,7 +537,7 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 	free(valBuffer);
 
 	//完成键值对的删除，返回新的节点有效数据大小
-	return --(*eLength);
+	//return --(*eLength);
 
 }
 
