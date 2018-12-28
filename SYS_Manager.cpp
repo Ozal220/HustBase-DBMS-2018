@@ -12,7 +12,7 @@ struct table{
 struct column{
 		char tablename[21];//表名
 		char attrname[21];//属性名
-		int attrtype;//属性类型
+		AttrType attrtype;//属性类型
 		int attrlength;//属性长度
 		int attroffset;//属性偏移地址
 		char ix_flag;//索引是否存在
@@ -294,10 +294,10 @@ RC DropTable(char *relName){
 	if(RemoveDirectory(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)return SUCCESS;*/
 	CFile tmp;
 	RM_FileHandle *rm_table, *rm_column;
-	RC rc;
 	RM_FileScan FileScan;
 	RM_Record rectab, reccol;
-	tmp.Remove((LPCTSTR)relName);//删除数据表文件
+	char index[21];
+	tmp.Remove((LPCTSTR)relName);//删除数据表文件(记录文件)
 	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统表文件
 	rm_table->bOpen = false;
 	if(RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
@@ -307,18 +307,24 @@ RC DropTable(char *relName){
 	FileScan.bOpen = false;//打开系统表文件进行扫描，删除同名表的记录项
 	if (OpenScan(&FileScan, rm_table,0,NULL)!= SUCCESS)return SQL_SYNTAX;
 	while(GetNextRec(&FileScan, &rectab)==SUCCESS){
-		if (strcmp(relName, rectab.pData)==0){//符合条件则删除该项
+		memcpy(tab.tablename,rectab.pData,21);
+		if (strcmp(relName,tab.tablename)==0){//符合条件则删除该项
 			DeleteRec(rm_table,&(rectab.rid));
 			break;//因为只有一项，所以直接跳出
 		}
 	}
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	FileScan.bOpen = false;//打开系统列文件进行扫描，删除同名表的记录项
 	if (OpenScan(&FileScan, rm_column,0,NULL) != SUCCESS)return SQL_SYNTAX;
 	while(GetNextRec(&FileScan, &reccol) == SUCCESS){
-		if (strcmp(relName, reccol.pData) == 0){//符合条件则删除该项
+		memcpy(col.tablename,reccol.pData,21);
+		if (strcmp(relName,col.tablename) == 0){//符合条件则删除该项对应的索引文件，之后再删除该项记录
+			memcpy(index,reccol.pData+43+3*sizeof(int),21);
+			if((reccol.pData+42+3*sizeof(int))=="1")tmp.Remove((LPCTSTR)index);	//删除索引文件
 			DeleteRec(rm_column, &(reccol.rid));//因为表可能有多个列，所以要遍历
 		}
 	}
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	if (RM_CloseFile(rm_table)!=SUCCESS)return SQL_SYNTAX;//关闭文件句柄
 	free(rm_table);
 	if (RM_CloseFile(rm_column)!=SUCCESS)return SQL_SYNTAX;
@@ -326,19 +332,108 @@ RC DropTable(char *relName){
 	return SUCCESS;
 }
 
-RC CreateIndex(char *indexName,char *relName,char *attrName){//对索引项排序
-	if(_access(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)),0)==-1){//文件夹不存在
-		 if(CreateDirectory(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)),NULL)==true){
-			if(CreateFile(strcat(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)),strcat("\\",indexName)))==true)		
-				
-			    return SUCCESS;
+RC CreateIndex(char *indexName,char *relName,char *attrName){
+	RM_FileHandle *rm_column,*rm_data;
+	IX_IndexHandle *rm_index;
+	RM_FileScan FileScan;					
+	RM_Record reccol;
+	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统列文件
+	rm_column->bOpen = false;
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!=SUCCESS){
+		AfxMessageBox("系统列文件打开失败");
+		return SQL_SYNTAX;
+	}
+	FileScan.bOpen = false;//打开系统列文件进行扫描，修改同名索引的记录项，ix_flag变0。
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!=SUCCESS){
+		AfxMessageBox("数据列文件扫描失败");
+		return SQL_SYNTAX;
+	}
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		memcpy(col.tablename,reccol.pData,21);
+		memcpy(col.attrname,reccol.pData+21,21);
+		char*type,*length,*offset;
+		memcpy(type,reccol.pData+42,sizeof(int));
+		switch((int)type){
+		case 0:col.attrtype=chars;break;
+		case 1:col.attrtype=ints;break;
+		case 2:col.attrtype=floats;break; 
+		}
+		memcpy(length,reccol.pData+42+sizeof(int),sizeof(int));
+		col.attrlength=(int)length;
+		memcpy(offset,reccol.pData+42+2*sizeof(int),sizeof(int));
+		col.attroffset=(int)offset;
+		if (strcmp(relName,col.tablename)==0&&strcmp(attrName,col.attrname)==0){//表名和属性名相符,找到该项
+			if((reccol.pData+42+3*sizeof(int))=="1")return SQL_SYNTAX;//存在索引则报错
+			else{//创建索引
+				if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+				CreateIndex(indexName,col.attrtype,col.attrlength);//创建索引文件
+				memcpy(reccol.pData+42+3*sizeof(int),"1",1);//更改系统列文件对应项的ix_flag和indexName
+				memcpy(reccol.pData+43+3*sizeof(int),indexName,21);
+				UpdateRec(rm_column,&reccol);
+				rm_index = (IX_IndexHandle *)malloc(sizeof(IX_IndexHandle));//打开索引文件
+	            rm_index->bOpen = false;
+	            if(OpenIndex(indexName, rm_index)!=SUCCESS){
+		            AfxMessageBox("索引文件打开失败");
+		            return SQL_SYNTAX;
+	            }
+				rm_data = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开表的记录文件
+	            rm_data->bOpen = false;
+	            if (RM_OpenFile(relName, rm_data)!=SUCCESS){
+		           AfxMessageBox("记录文件打开失败");
+		           return SQL_SYNTAX;
+	            }
+				FileScan.bOpen = false;//打开表的记录文件进行扫描
+	            if (OpenScan(&FileScan, rm_data,0,NULL) != SUCCESS){
+					AfxMessageBox("记录文件扫描失败");
+					return SQL_SYNTAX;
+				}
+	            while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		            char *data = (char *)malloc(col.attrlength);
+		            memcpy(data, reccol.pData + col.attroffset, col.attrlength);
+		            InsertEntry(rm_index, data, &(reccol.rid));
+	            }
+	            if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+				if(RM_CloseFile(rm_data)!=SUCCESS)return SQL_SYNTAX;
+				if(CloseIndex(rm_index)!=SUCCESS)return SQL_SYNTAX;
+				if(RM_CloseFile(rm_column)!=SUCCESS)return SQL_SYNTAX;
+				break;//只有一项符合，创建完后就跳出
+			}
 		}
 	}
+	return SUCCESS;
 }
 
 RC DropIndex(char *indexName){
-	if(_access(strcat(path,indexName),0)==-1)return SQL_SYNTAX;//文件夹不存在
-	else ;
+	CFile tmp;
+	RM_FileHandle *rm_column;
+	RM_FileScan FileScan;
+	RM_Record reccol;	
+	char index[21];
+	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//打开系统列文件
+	rm_column->bOpen = false;
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!=SUCCESS){
+		AfxMessageBox("系统列文件打开失败");
+		return SQL_SYNTAX;
+	}
+	FileScan.bOpen = false;//打开系统列文件进行扫描，修改同名索引的记录项，flag变0。
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!=SUCCESS){
+		AfxMessageBox("数据列文件扫描失败");
+		return SQL_SYNTAX;
+	}
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		memcpy(index,reccol.pData+43+3*sizeof(int),21);
+		if (strcmp(indexName,index)==0){//索引名相符,找到该项
+			if((reccol.pData+42+3*sizeof(int))=="0")return SQL_SYNTAX;//不存在索引则报错
+			else{
+				memcpy(reccol.pData+42+3*sizeof(int),"0",1);//存在则标记位置0且删除索引文件
+			    if (UpdateRec(rm_column,&reccol)!=SUCCESS)return SQL_SYNTAX;
+				tmp.Remove((LPCTSTR)indexName);//删除索引文件
+			}
+		}
+	}
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	if (RM_CloseFile(rm_column)!= SUCCESS)return SQL_SYNTAX;
+	return SUCCESS;
 }
 
 RC Insert(char *relName,int nValues,Value * values){
