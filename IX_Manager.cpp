@@ -251,34 +251,176 @@ RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 }
 
 //索引删除的递归调用
+/* 
+---------------------
+删除具体算法如下：
+
+1）沿根纵向找到关键字x所在的叶结点d，如果d中不存在关键字x，则删除失败，否则，进入下一步。
+
+2）删除d中的x，如果删除x后，叶d不下溢，则删除结束；否则，进入下一步。
+
+3）找叶d的一个临近兄弟e，如果e处于半满状态，进入步骤4，否则进入下面的处理。
+
+从e中移一个元素给叶d，如果e在d的左侧，则移的是e中最大元素；如果e在d的右侧，则移的是e中最小元素，移走元素的同时，要相应地修改上层结点中的索引信息，删除结束。
+
+4）将d合并到e，删除d，并相应地修改上层结点中的索引信息。当然，也可将e合并到d。
+
+5）如果删除d不引起其父f的下溢，则删除结束；否则，将递归地波及到更上层结点。
+--------------------- 
+*/
 RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_PageHandle *pageDelete)
 {
+	PF_FileHandle *fileHandle = indexHandle->fileHandle;
 	IX_Node *pageControl = (IX_Node *)(pageDelete->pFrame->page.pData + sizeof(IX_FileHeader));			// 获得当前页的索引记录信息
 	int offset = deleteKey(pageControl->keys, pageControl->rids, &pageControl->keynum, (char *)pData,
 							 indexHandle->fileHeader->attrType, indexHandle->fileHeader->keyLength);	// 删除对应的索引项
 	if (-1 == offset) // 如果该键不存在
 		return FAIL;
+	int threshold = ceil((float)indexHandle->fileHeader->order / 2);
 	// 该key存在，并已在叶子结点删除。进行下一步判断
-	// 每个内部节点的分支数范围为[ceil(m/2),m]; 是否符合该规定
-	if(pageControl->keynum >= ceil((float)indexHandle->fileHeader->order / 2))							// 索引项数符合规定
+	// 每个内部节点的分支数范围应为[ceil(m/2),m];
+	if(pageControl->keynum >= threshold)							// 索引项数符合规定,没有下溢
 	{
 		if(offset == 0)	// 删除的是页面的第一个结点,需调整父页面的值	
-			changeParentsFirstKey(indexHandle, pageControl, indexHandle->fileHeader->attrLength);
+			changeParentsFirstKey(indexHandle, pageControl);
 		return SUCCESS;		// 返回成功,不用调整父页面的值
 	}  
-	else
+	else	// 下溢
 	{
-		//索引项数小于ceil[m/2],结合索引
-		
+		/*	TO-DO-1: if(临近兄弟e处于半满状态) 则不能借节点，要将d合并到兄弟e
+		 *	1 合并
+		 *		1.1 e是左兄弟就把目前页中内容都放到e最后的节点之后。
+		 *		1.2 e是右兄弟在把目前页内容插入到e的开头，将e中原有的节点往下移
+		 *	2 删掉在父节点中指向目前页d的内容 
+		 *	3 递归向上走
+		 */
+		/* TO-DO-2: else 将从e借一个节点加到目前节点, 如果e是左节点则借最大数，是右节点则借最小数
+		 *
+		 */
+		int status = 0;
+		getFromBrother(pageDelete, fileHandle, indexHandle->fileHeader->order, indexHandle->fileHeader->attrType, 
+						indexHandle->fileHeader->attrLength, threshold, status);   //对兄弟节点进行处理(函数内部会先后找左右兄弟)
 	}
 }
-// TO-DO : 确认覆盖方式。
-void changeParentsFirstKey(IX_IndexHandle *indexHandle, IX_Node *node, const int attrLength)
+
+//从兄弟节点中借节点或者合并
+void getFromBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle,const int order,const AttrType attrType,const int attrLength,const int threshold, int &status)
+{
+	PageNum leftPageNum;
+	findLeftBrother(pageHandle, fileHandle, order, attrType, attrLength, leftPageNum);    //首先从左兄弟节点处理
+	if (-1 != leftPageNum)   //如果左兄弟节点存在，对左兄弟进行处理
+	{
+		PF_PageHandle *leftHandle = nullptr;
+		GetThisPage(fileHandle, leftPageNum, leftHandle);
+		getFromLeft(pageHandle, leftHandle, order, attrType, attrLength, threshold, status);   //对左兄弟进行处理
+	}
+	else   //说明节点的左兄弟节点不存在，对右兄弟进行处理
+	{
+
+	}
+}
+
+//找出当前节点的左兄弟节点
+void findLeftBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle, const int order, const AttrType attrType, const int attrLength, PageNum &leftBrother)
+{
+	char *data;
+	PageNum nowPage;
+	GetPageNum(pageHandle, &nowPage);   //获取当前页面号
+	GetData(pageHandle, &data);
+	IX_Node* nodeControlInfo = (IX_Node*)(data + sizeof(IX_FileHeader));
+
+	PF_PageHandle *parentPageHandle = NULL;
+	GetThisPage(fileHandle, nodeControlInfo->parent, parentPageHandle);
+	char *parentData;
+	char *parentKeys;
+	char *parentRids;
+
+	GetData(parentPageHandle, &parentData);
+	//获取关键字区
+	parentKeys = parentData + sizeof(IX_FileHeader) + sizeof(IX_Node);
+	//获取指针区
+	parentRids = parentKeys + order * attrLength;
+	for (int offset = 0; ; offset++)
+	{
+		RID *tempRid = (RID*)parentRids + offset * sizeof(RID);
+		if (tempRid->pageNum == nowPage)
+		{
+			if (offset != 0)			// 如果是第1个则没有左兄弟
+			{
+				offset--;			// 往左移一个单位
+				tempRid = (RID*)parentRids + offset * sizeof(RID);
+				leftBrother = tempRid->pageNum;
+			}
+			else
+				leftBrother = -1;
+			return;
+		}
+	}
+}
+
+//与左兄弟节点进行处理
+void getFromLeft(PF_PageHandle *pageHandle, PF_PageHandle *leftHandle, int order, AttrType attrType, int attrLength, const int threshold, int &status)
+{
+	char *pageData;
+	char *pageKeys;
+	char *pageRids;
+
+	char *leftData;
+	char *leftKeys;
+	char *leftRids;
+
+	GetData(leftHandle, &leftData);
+	//获取左节点页面得节点控制信息
+	IX_Node* leftNodeControlInfo = (IX_Node*)(leftData + sizeof(IX_FileHeader));
+	//获取关键字区
+	leftKeys = leftData + sizeof(IX_FileHeader) + sizeof(IX_Node);
+	//获取指针区
+	leftRids = leftKeys + order*attrLength;
+
+	GetData(pageHandle, &pageData);
+	IX_Node* pageNodeControlInfo = (IX_Node*)(pageData + sizeof(IX_FileHeader));
+	int pageKeynum = pageNodeControlInfo->keynum;
+	//获取关键字区
+	pageKeys = pageData + sizeof(IX_FileHeader) + sizeof(IX_Node);
+	//获取指针区
+	pageRids = pageKeys + order*attrLength;
+
+	int leftKeynum = leftNodeControlInfo->keynum;
+	if (leftKeynum > threshold)   //说明可以借出去
+	{
+		// 本页面的关键字向后移一个单位，将左兄弟的最后一个关键字复制到本页面的第一个位置
+		memcpy(pageKeys + attrLength, pageKeys, pageKeynum * attrLength);   //关键字整体后移
+		memcpy(pageRids + sizeof(RID), pageRids, pageKeynum * sizeof(RID));   //关键字指针整体后移
+
+		memcpy(pageKeys, leftKeys + (leftKeynum - 1) * attrLength, attrLength);  //复制左节点的最后一个关键字
+		memcpy(pageRids, leftRids + (leftKeynum - 1) * sizeof(RID), sizeof(RID));  //复制左节点最后一个关键字指针
+
+		leftNodeControlInfo->keynum = leftKeynum - 1;    //修改关键字个数
+		pageNodeControlInfo->keynum = pageKeynum + 1;   //修改关键字个数
+		status = 1;		// 第一种情况：从左兄弟借一个节点， 后续需要改指向本节点的父节点中的关键值。用changeParentsFirstKey函数
+
+	}
+	else   //说明不能借，只能进行合并：合并时将本页内容加到左兄弟的最后一个节点后
+	{
+		memcpy(leftKeys + leftKeynum * attrLength, pageKeys, pageKeynum * attrLength);   //关键字整体复制到左节点中
+		memcpy(leftRids + leftKeynum * sizeof(RID), pageRids, pageKeynum * sizeof(RID));   //关键字指针整体复制到左节点中
+
+		leftNodeControlInfo->keynum = leftKeynum + pageKeynum;    //修改关键字个数
+		pageNodeControlInfo->keynum = 0;   //修改关键字个数
+		leftNodeControlInfo->brother = pageNodeControlInfo->brother;    //修改叶子页面链表指针
+		status = 2;		// 第二种情况：将节点复制到左兄弟节点后面
+	}
+
+}
+
+// TO-DO-3: 确认覆盖方式。
+void changeParentsFirstKey(IX_IndexHandle *indexHandle, IX_Node *node)
 {
 	IX_Node *parentNode;
 	PF_PageHandle *parentPage;
 	char *parentData;
 	char *parentKeys;
+	int attrLength = indexHandle->fileHeader->attrLength;
 	bool rootFlag = true;		//因循环判断条件不包含根节点，用一个标志来进行根的key覆盖
 	while(indexHandle->fileHeader->rootPage != node->parent) // 循环至根的子结点
 	{

@@ -25,14 +25,13 @@ typedef struct{
 
 // 12/28:修改了数据结构,添加了parentOrder和leftBrother. 将原来的brother改为rightBrother
 typedef struct{
-	int is_leaf;			// 该节点是否为叶子节点
-	int keynum;				// 该节点实际包含的关键字个数
-	PageNum parent;			// 指向父节点所在的页面号
-	int parentOrder;		// 父节点在所在页面当中的序号
-	PageNum rightBrother;	// 指向右兄弟节点所在的页面号
-	PageNum leftBrother;	// 指向左兄弟节点所在的页面号
-	char *keys;				// 指向关键字区的指针
-	RID *rids;				// 指向指针区的指针
+	int is_leaf;		// 该节点是否为叶子节点
+	int keynum;			// 该节点实际包含的关键字个数
+	PageNum parent;		// 指向父节点所在的页面号
+	int parentOrder;	// 父节点在所在页面当中的序号
+	PageNum brother;	// 指向右兄弟节点所在的页面号
+	char *keys;			// 指向关键字区的指针
+	RID *rids;			// 指向指针区的指针
 }IX_Node;
 
 typedef struct{
