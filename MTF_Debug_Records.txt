@@ -1,0 +1,8 @@
+﻿debug日记
+12/29
+1.修复了脏页标记的问题
+2.结构内的指针问题
+3.unsigned char问题，bitmanager
+4.更改控制页的位图后没有标记脏页
+5.bitmanager的firstbit方法，对于一开始就有偏移量的情况的判断条件错误
+while((test==cmp)&&(offset<bmLength))变为while(((test>>bitOffset)==(cmp>>bitOffset))&&(offset<bmLength))
