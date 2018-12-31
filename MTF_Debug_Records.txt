@@ -6,3 +6,19 @@
 4.更改控制页的位图后没有标记脏页
 5.bitmanager的firstbit方法，对于一开始就有偏移量的情况的判断条件错误
 while((test==cmp)&&(offset<bmLength))变为while(((test>>bitOffset)==(cmp>>bitOffset))&&(offset<bmLength))
+
+12/30
+1.获得记录的判断条件漏了页号不能小于2
+2.更新记录函数的问题，同上
+3.删除记录函数更新没有页面控制位图
+4.如何获得结构体中成员地址的偏移量问题（非常关键，编译器会插入冗余字符）
+5.（坑死人了）用bitmanager的firstbit方法判断是否还有已经分配的页时，若没有，返回-1，若使用pageNum类型的变量接收返回值将出错，因为pageNum无符号
+rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1);
+if(rmFileScan->pn==-1)
+	return RM_NOMORERECINMEM;
+改为
+if(rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1)==-1)
+	return RM_NOMORERECINMEM;
+rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1);
+因为rmFileScan->pn为pageNum类型
+6.使用相关句柄前记得将布尔值成员置为false
