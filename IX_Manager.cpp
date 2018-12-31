@@ -25,7 +25,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	case NO_OP:
 	case LEqual:
 	case LessT:
-		indexScan->pnNext=indexHandle->fileHeader->first_leaf;
+		indexScan->pnNext=indexHandle->fileHeader.first_leaf;
 		indexScan->ridIx=0;
 		GetThisPage(indexHandle->fileHandle,indexScan->pnNext,pageStart);
 		indexScan->pfPageHandle=pageStart;
@@ -40,15 +40,15 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	float targetVal,indexVal;
 	for(indexOffset=0;indexOffset<startPageControl->keynum;indexOffset++)
 	{
-		switch(indexHandle->fileHeader->attrType)
+		switch(indexHandle->fileHeader.attrType)
 		{
 		case 0:
 			rtn=strcmp((char *)value,
-				startPageControl->keys+indexOffset*indexHandle->fileHeader->keyLength+sizeof(RID));
+				startPageControl->keys+indexOffset*indexHandle->fileHeader.keyLength+sizeof(RID));
 		case 1:
 		case 2:
 			targetVal=*(float *)value;
-			indexVal=*(float *)(startPageControl->keys+indexOffset*indexHandle->fileHeader->keyLength+sizeof(RID));
+			indexVal=*(float *)(startPageControl->keys+indexOffset*indexHandle->fileHeader.keyLength+sizeof(RID));
 			rtn=(targetVal<indexVal)?-1:((targetVal==indexVal)?0:1);
 			break;
 		default:
@@ -163,8 +163,8 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 {
 	IX_Node *pageControl=(IX_Node *)(pageInsert->pFrame->page.pData+sizeof(IX_FileHeader));  //获得当前页的索引记录信息
 	int posInsert=insertKey(pageControl->keys,pageControl->rids,&pageControl->keynum,(char *)pData,  //强势插入一个索引项
-		rid,indexHandle->fileHeader->attrType,indexHandle->fileHeader->keyLength);
-	if(pageControl->keynum<indexHandle->fileHeader->order)
+		rid,indexHandle->fileHeader.attrType,indexHandle->fileHeader.keyLength);
+	if(pageControl->keynum<indexHandle->fileHeader.order)
 		return;  //索引项数没有超，皆大欢喜
 	else
 	{
@@ -176,12 +176,12 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 		IX_Node *broPageControl=(IX_Node *)(brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)); //兄弟节点的控制信息
 		broPageControl->keys=brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //计算兄弟节点的索引区与数据区
 		broPageControl->rids=(RID *)(broPageControl->keys+
-			(indexHandle->fileHeader->order+1)*indexHandle->fileHeader->keyLength);
+			(indexHandle->fileHeader.order+1)*indexHandle->fileHeader.keyLength);
 		//先向兄弟节点搬移分裂出去的索引数据
 		broPageControl->keynum=(pageControl->keynum-splitOffset);   //设置兄弟节点的实际索引数
 		memcpy(broPageControl->keys,
 			pageControl->keys+splitOffset,
-			broPageControl->keynum*indexHandle->fileHeader->keyLength); //搬移索引区数据
+			broPageControl->keynum*indexHandle->fileHeader.keyLength); //搬移索引区数据
 		pageControl->keynum=splitOffset;         //设置当前节点的实际索引数
 		memcpy(broPageControl->rids,
 			pageControl->rids+splitOffset,
@@ -201,13 +201,13 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			parentPageControl->brother=-1;
 			parentPageControl->keys=parentNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //计算父节点的索引区与数据区
 			parentPageControl->rids=(RID *)(parentPageControl->keys+
-				(indexHandle->fileHeader->order+1)*indexHandle->fileHeader->keyLength);
-			indexHandle->fileHeader->rootPage=parentNode->pFrame->page.pageNum;  //设置当前的根节点位置
-			memcpy(parentPageControl->keys,pageControl->keys,indexHandle->fileHeader->keyLength);  //当前节点的第一个索引值
+				(indexHandle->fileHeader.order+1)*indexHandle->fileHeader->keyLength);
+			indexHandle->fileHeader.rootPage=parentNode->pFrame->page.pageNum;  //设置当前的根节点位置
+			memcpy(parentPageControl->keys,pageControl->keys,indexHandle->fileHeader.keyLength);  //当前节点的第一个索引值
 			parentPageControl->rids->bValid=true;
 			parentPageControl->rids->pageNum=pageInsert->pFrame->page.pageNum;  //一个指针指向当前节点
 			parentPageControl->rids->slotNum=0;   //内节点的指针的槽值都为0
-			memcpy(parentPageControl->keys,broPageControl->keys,indexHandle->fileHeader->keyLength);  //兄弟节点的第一个索引值
+			memcpy(parentPageControl->keys,broPageControl->keys,indexHandle->fileHeader.keyLength);  //兄弟节点的第一个索引值
 			parentPageControl->rids->bValid=true;
 			parentPageControl->rids->pageNum=brotherNode->pFrame->page.pageNum;  //一个指针指向兄弟节点
 			parentPageControl->rids->slotNum=0;   //内节点的指针的槽值都为0
@@ -226,7 +226,7 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			PF_PageHandle *parentPage;
 			GetThisPage(indexHandle->fileHandle,pageControl->parent,parentPage);
 			if(posInsert!=0)  //前面插入的时候插在了当前节点的最左侧，需要更新父节点的索引值
-				memcpy(parentPage->pFrame->page.pData,pageControl->keys,indexHandle->fileHeader->keyLength);
+				memcpy(parentPage->pFrame->page.pData,pageControl->keys,indexHandle->fileHeader.keyLength);
 			RecursionInsert(indexHandle,broPageControl->keys,broPointer,parentPage);
 		}
 	}
@@ -245,6 +245,7 @@ RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 	 but I still remain in a state of prototype.
 	 I feel like I was abandoned by Wuzi, so sad o(╥﹏╥)o
  */
+	/* Your never code alone ~ */
 	PF_PageHandle *pageDelete = FindNode(indexHandle, pData); //根据输入的数据找到即将操作的节点
 	//调用递归函数
 	return RecursionDelete(indexHandle, pData, rid, pageDelete);
@@ -260,14 +261,19 @@ RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_
 	if (-1 == offset) // 如果该键不存在
 		return FAIL;
 	int threshold = ceil((float)indexHandle->fileHeader->order / 2);
-	// 该key存在，并已在叶子结点删除。进行下一步判断
-	// 每个内部节点的分支数范围应为[ceil(m/2),m];
+	// 该key存在，并已在叶子结点删除。进行下一步判断:每个内部节点的分支数范围应为[ceil(m/2),m];
 	if(pageControl->keynum >= threshold)							// 索引项数符合规定,没有下溢
 	{
-		if(offset == 0)	// 删除的是页面的第一个结点,需调整父页面的值	
-			changeParentsFirstKey(indexHandle, pageControl);
-		//deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, nodePageNum, tempKeys, tempNodeControlInfo->parentOrder, false);  //递归修改右兄弟节点
-		return SUCCESS;		// 返回成功,不用调整父页面的值
+		if(offset == 0)	// 删除的是页面的第一个结点,需调整父页面的值
+		{
+			PageNum nodePageNum;
+			PF_PageHandle *parentPageHandle = nullptr;
+		
+			GetPageNum(pageHandle, &nodePageNum);									//本页面的页号
+			GetThisPage(fileHandle, pageControl->parent, parentPageHandle);			//本页面的父亲
+			deleteOrAlterParentNode(parentPageHandle, fileHandle, indexHandle->fileHeader.order, indexHandle->fileHeader.attrType,
+									indexHandle->fileHeader.attrLength, nodePageNum, pageControl->keynum, pageControl->parentOrder, false); 
+		}	
 	}  
 	else	// 下溢
 	{
@@ -279,9 +285,10 @@ RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_
 			*	3 递归向上走
 		 *  else 将从e借一个节点加到目前节点, 如果e是左节点则借最大数，是右节点则借最小数
 		 */
-		getFromBrother(pageDelete, fileHandle, indexHandle->fileHeader->order, indexHandle->fileHeader->attrType, 
-						indexHandle->fileHeader->attrLength, threshold);   //对兄弟节点进行处理(函数内部会先后找左右兄弟)
+		getFromBrother(pageDelete, fileHandle, indexHandle->fileHeader.order, indexHandle->fileHeader.attrType, 
+						indexHandle->fileHeader.attrLength, threshold);   //对兄弟节点进行处理(函数内部会先后找左右兄弟)
 	}
+	return SUCCESS;		// 返回成功,不用调整父页面的值
 }
 
 //从兄弟节点中借节点或者合并
@@ -317,10 +324,10 @@ void getFromBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle,const i
 			// 拿到左兄弟父亲的关键值
 			GetData(leftHandle, &tempData);
 			tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));		//指向左兄弟节点
-			tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);			//左兄弟的关键字区
+			//tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);			//左兄弟的关键字区
 			GetThisPage(fileHandle, tempNodeControlInfo->parent, parentPageHandle);	//左兄弟父亲
 			//进行删除
-			deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, leftPageNum, tempKeys, tempNodeControlInfo->parentOrder, true);   
+			deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, leftPageNum, nullptr, tempNodeControlInfo->parentOrder, true);   
 		}
 	}
 	else   //左兄弟节点不存在，对右兄弟进行处理
@@ -571,8 +578,7 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	ixNode->keynum = 0;
 	ixNode->parent = 0;
 	ixNode->parentOrder = 0;
-	ixNode->rightBrother = -1;
-	ixNode->leftBrother = -1;
+	ixNode->brother = -1;
 	ixNode->keys = (char *)(firstPage->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node));
 	ixNode->rids = (RID *)(ixNode->keys+(fileHeader->order+1)*fileHeader->keyLength);  //+1很重要，因为留出了一个单位的空间用于平衡节点的调度
 	/*
@@ -779,7 +785,7 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {
 	//定位根节点
-	int rootPage=indexHandle->fileHeader->rootPage;
+	int rootPage=indexHandle->fileHeader.rootPage;
 	PF_PageHandle *currentPage;
 	int rtn;
 	float targetVal,indexVal;
@@ -793,15 +799,15 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 	{
 		for(offset=0; offset<nodeInfo->keynum;offset++)
 		{
-			switch(indexHandle->fileHeader->attrType)
+			switch(indexHandle->fileHeader.attrType)
 			{
 			case 0:
 				rtn=strcmp((char *)targetKey+sizeof(RID),
-					nodeInfo->keys+offset*indexHandle->fileHeader->keyLength+sizeof(RID));
+					nodeInfo->keys+offset*indexHandle->fileHeader.keyLength+sizeof(RID));
 			case 1:
 			case 2:
 				targetVal=*((float *)targetKey+sizeof(RID));
-				indexVal=*(float *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength+sizeof(RID));
+				indexVal=*(float *)(nodeInfo->keys+offset*indexHandle->fileHeader.keyLength+sizeof(RID));
 				rtn=(targetVal<indexVal)?-1:((targetVal==indexVal)?0:1);
 				break;
 			default:
@@ -811,12 +817,12 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 				continue; 
 			else if(rtn==0)
 			{
-				int currentPageNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength))->pageNum;
+				int currentPageNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader.keyLength))->pageNum;
 				if(((RID *)targetKey)->pageNum>currentPageNum)
 					continue;
 				else if(((RID *)targetKey)->pageNum==currentPageNum)
 				{
-					int currentSlotNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader->keyLength))->slotNum;
+					int currentSlotNum=((RID *)(nodeInfo->keys+offset*indexHandle->fileHeader.keyLength))->slotNum;
 					if(((RID *)targetKey)->slotNum>currentSlotNum)
 						continue;
 					if(((RID *)targetKey)->slotNum)
