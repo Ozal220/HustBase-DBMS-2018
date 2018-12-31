@@ -251,23 +251,6 @@ RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 }
 
 //索引删除的递归调用
-/* 
----------------------
-删除具体算法如下：
-
-1）沿根纵向找到关键字x所在的叶结点d，如果d中不存在关键字x，则删除失败，否则，进入下一步。
-
-2）删除d中的x，如果删除x后，叶d不下溢，则删除结束；否则，进入下一步。
-
-3）找叶d的一个临近兄弟e，如果e处于半满状态，进入步骤4，否则进入下面的处理。
-
-从e中移一个元素给叶d，如果e在d的左侧，则移的是e中最大元素；如果e在d的右侧，则移的是e中最小元素，移走元素的同时，要相应地修改上层结点中的索引信息，删除结束。
-
-4）将d合并到e，删除d，并相应地修改上层结点中的索引信息。当然，也可将e合并到d。
-
-5）如果删除d不引起其父f的下溢，则删除结束；否则，将递归地波及到更上层结点。
---------------------- 
-*/
 RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_PageHandle *pageDelete)
 {
 	PF_FileHandle *fileHandle = indexHandle->fileHandle;
@@ -283,6 +266,7 @@ RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_
 	{
 		if(offset == 0)	// 删除的是页面的第一个结点,需调整父页面的值	
 			changeParentsFirstKey(indexHandle, pageControl);
+		//deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, nodePageNum, tempKeys, tempNodeControlInfo->parentOrder, false);  //递归修改右兄弟节点
 		return SUCCESS;		// 返回成功,不用调整父页面的值
 	}  
 	else	// 下溢
@@ -295,45 +279,72 @@ RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_
 			*	3 递归向上走
 		 *  else 将从e借一个节点加到目前节点, 如果e是左节点则借最大数，是右节点则借最小数
 		 */
-		int status = 0;
 		getFromBrother(pageDelete, fileHandle, indexHandle->fileHeader->order, indexHandle->fileHeader->attrType, 
-						indexHandle->fileHeader->attrLength, threshold, status);   //对兄弟节点进行处理(函数内部会先后找左右兄弟)
+						indexHandle->fileHeader->attrLength, threshold);   //对兄弟节点进行处理(函数内部会先后找左右兄弟)
 	}
 }
 
 //从兄弟节点中借节点或者合并
-void getFromBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle,const int order,const AttrType attrType,const int attrLength,const int threshold, int &status)
+void getFromBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle,const int order,const AttrType attrType,const int attrLength,const int threshold)
 {
+	int status = 0;
 	PageNum leftPageNum;
+	PageNum nodePageNum;
 	findLeftBrother(pageHandle, fileHandle, order, attrType, attrLength, leftPageNum);    //首先从左兄弟节点处理
+	char *tempData = nullptr;
+	char *tempKeys = nullptr;
+	IX_Node* tempNodeControlInfo = nullptr;
+	PF_PageHandle *parentPageHandle = nullptr;
+
 	if (-1 != leftPageNum)   //如果左兄弟节点存在，对左兄弟进行处理
 	{
 		PF_PageHandle *leftHandle = nullptr;
 		GetThisPage(fileHandle, leftPageNum, leftHandle);
 		getFromLeft(pageHandle, leftHandle, order, attrType, attrLength, threshold, status);   //对左兄弟进行处理
+		
+		if (1 == status)		//情况1:从左兄弟借点.处理:修改本节点父亲页的值
+		{
+			GetPageNum(pageHandle, &nodePageNum);									//本页面的页号		
+			GetData(pageHandle, &tempData);
+			tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));		//指向本页面节点
+			tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);			//本页面的关键字区
+			GetThisPage(fileHandle, tempNodeControlInfo->parent, parentPageHandle);	//本页面的父亲
+			
+			deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, nodePageNum, tempKeys, tempNodeControlInfo->parentOrder, false);
+		}
+		else if (2 == status)   //情况2:与左节点进行合并.处理:删除左兄弟的父亲页对应的关键字
+		{
+			// 拿到左兄弟父亲的关键值
+			GetData(leftHandle, &tempData);
+			tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));		//指向左兄弟节点
+			tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);			//左兄弟的关键字区
+			GetThisPage(fileHandle, tempNodeControlInfo->parent, parentPageHandle);	//左兄弟父亲
+			//进行删除
+			deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, leftPageNum, tempKeys, tempNodeControlInfo->parentOrder, true);   
+		}
 	}
 	else   //左兄弟节点不存在，对右兄弟进行处理
 	{
-		PF_PageHandle *rightHandle = NULL;
-		char *tempData;
+		PF_PageHandle *rightHandle = nullptr;
 		GetData(pageHandle, &tempData);
-		IX_Node* tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));
+		tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));		//指向本节点
 		GetThisPage(fileHandle, tempNodeControlInfo->brother, rightHandle);
 		getFromRight(pageHandle, rightHandle, order, attrType, attrLength, threshold, status);  //对右兄弟进行处理
 
 		// 拿到右兄弟父亲的关键值
-		PF_PageHandle *parentPageHandle = NULL;
 		GetData(rightHandle, &tempData);
-		tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));
-		char *tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);
-		
-		GetThisPage(fileHandle, tempNodeControlInfo->parent, parentPageHandle);
-		PageNum nodePageNum;
+		tempNodeControlInfo = (IX_Node*)(tempData + sizeof(IX_FileHeader));		//指向右兄弟节点
+		tempKeys = tempData + sizeof(IX_FileHeader) + sizeof(IX_Node);	//右兄弟的关键字区
+		GetThisPage(fileHandle, tempNodeControlInfo->parent, parentPageHandle);	//右兄弟父亲
 		GetPageNum(rightHandle, &nodePageNum);	// 右兄弟的页号
 		
-		if (status == 3)   //情况3:从右兄弟借点
+		if (3 == status)		//情况3:从右兄弟借点.处理:修改右兄弟的父亲页的值
 		{
-			deleteOrAlterParentNode(parentPageHandle, fileHandle, order, attrType, attrLength, nodePageNum, tempKeys, tempNodeControlInfo->parentOrder, false);  //递归修改右兄弟节点
+			deleteOrAlterParentNode(parentPageHandle, &fileHandle, order, attrType, attrLength, nodePageNum, tempKeys, tempNodeControlInfo->parentOrder, false);  //递归修改右兄弟节点
+		}
+		else if (4 == status)	//情况4:将右兄弟合并到本节点.处理:删除右兄弟的父亲页对应的关键字
+		{
+			deleteOrAlterParentNode(parentPageHandle, &fileHandle, order, attrType, attrLength, nodePageNum, nullptr, tempNodeControlInfo->parentOrder, true);    //从父节点中删除右节点对应的关键字
 		}
 	}
 
@@ -383,7 +394,7 @@ void getFromRight(PF_PageHandle *pageHandle, PF_PageHandle *rightHandle, int ord
 		rightNodeControlInfo->keynum = 0;							//修改关键字个数
 		pageNodeControlInfo->keynum = pageKeynum + rightKeynum;		//修改关键字个数
 		status = 4;													//情况4:将右兄弟合并到本节点，后续需要删除父节点对应的右兄弟关键词
-
+ 
 		pageNodeControlInfo->brother = rightNodeControlInfo->brother;   //修改页面链表指针
 	}
 }
