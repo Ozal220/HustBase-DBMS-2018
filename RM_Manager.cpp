@@ -6,6 +6,8 @@
 
 //Dirty page 问题，Dirty page没有标记
 
+#include <iostream>
+
 RC CloseScan(RM_FileScan *rmFileScan)
 {
 	rmFileScan->bOpen=false;
@@ -26,7 +28,7 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	//取得带扫描的首页面
 	if(GetThisPage(fileHandle->file,2,&rmFileScan->PageHandle))
 		return FAIL;
-	rmFileScan->pn=3;
+	rmFileScan->pn=2;
 	rmFileScan->sn=0; //插槽从0开始编号
 	return SUCCESS;
 }
@@ -133,7 +135,11 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 		//跳到下一页
 		rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1);
 		if(rmFileScan->pn==-1)
+		UnpinPage(&rmFileScan->PageHandle);
+		if(rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1)==-1)
 			return RM_NOMORERECINMEM;
+		rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1);
+		GetThisPage(&rmFileScan->pRMFileHandle->file,rmFileScan->pn,&rmFileScan->PageHandle);
 		rmFileScan->sn=0;
 	}
 }
@@ -186,7 +192,7 @@ RC GetRec (RM_FileHandle *fileHandle,RID *rid, RM_Record *rec)
 	//首先判断rid是否有效（页是否被分配，记录是否有效）
 	rec->bValid=false;
 	//char bitmapPage=*(fileHandle->file->pBitmap+rid->pageNum/8);
-	if(!fileHandle->pageCtlBitmap->atPos(rid->pageNum)||(rid->pageNum>fileHandle->file->pFileSubHeader->pageCount)||(rid->slotNum>fileHandle->recPerPage-1))
+	if(!fileHandle->pageCtlBitmap->atPos(rid->pageNum)||(rid->pageNum>fileHandle->file.pFileSubHeader->pageCount)||(rid->slotNum>fileHandle->recPerPage-1)||(rid->pageNum<2))
 		return RM_INVALIDRID;
 	PF_PageHandle *targetPage=NULL;
 	if(GetThisPage(fileHandle->file,rid->pageNum,targetPage))
@@ -195,7 +201,9 @@ RC GetRec (RM_FileHandle *fileHandle,RID *rid, RM_Record *rec)
 	if((bitmapRec&(0x01<<(rid->slotNum%8)))==0)
 		return RM_INVALIDRID;
 	//RID有效
-	rid->bValid=TRUE;
+	rec->rid.bValid=TRUE;
+	rec->rid.pageNum=rid->pageNum;
+	rec->rid.slotNum=rid->slotNum;
 	rec->bValid=TRUE;
 	rec->pData=targetPage->pFrame->page.pData+fileHandle->recOffset+rid->slotNum*fileHandle->recSize;
 	return SUCCESS;
@@ -262,7 +270,7 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 {
 	//检测RID有效性
-	if(rid->pageNum>fileHandle->file->pFileSubHeader->pageCount||(!fileHandle->pageCtlBitmap->atPos(rid->pageNum)))
+	if(rid->pageNum>fileHandle->file.pFileSubHeader->pageCount||(!fileHandle->pageCtlBitmap->atPos(rid->pageNum))||(rid->pageNum<2))
 		return RM_INVALIDRID;
 	//获得目标页的句柄
 	PF_PageHandle *target=NULL;
@@ -273,6 +281,17 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 	if(!bitmap.atPos(rid->slotNum))
 		return RM_INVALIDRID;
 	bitmap.setBitmap(rid->slotNum,0);
+	//若已经没有任何有效记录
+	if(bitmap.firstBit(0,1)==-1)
+	{
+		PF_PageHandle *ctrPage=new PF_PageHandle;
+		GetThisPage(&fileHandle->file,1,ctrPage);
+		fileHandle->recCtlBitmap->setBitmap(rid->pageNum,0);
+		MarkDirty(ctrPage);
+		UnpinPage(ctrPage);
+		free(ctrPage);
+		DisposePage(&fileHandle->file,target->pFrame->page.pageNum);
+	}
 	//修改剩余记录数
 	(*fileHandle->recNum)--;
 	return SUCCESS;
@@ -281,7 +300,7 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 RC UpdateRec (RM_FileHandle *fileHandle,const RM_Record *rec)
 {
 	//检测RID有效性
-	if(rec->rid.pageNum>fileHandle->file->pFileSubHeader->pageCount||(!fileHandle->pageCtlBitmap->atPos(rec->rid.pageNum)))
+	if(rec->rid.pageNum>fileHandle->file.pFileSubHeader->pageCount||(!fileHandle->pageCtlBitmap->atPos(rec->rid.pageNum))||(rec->rid.pageNum<2))
 		return RM_INVALIDRID;
 	//获得目标页的句柄
 	PF_PageHandle *target=NULL;

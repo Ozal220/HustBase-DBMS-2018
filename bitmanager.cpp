@@ -43,6 +43,8 @@ int bitmanager::firstBit(int n, bool val)
         offset++;
         bitOffset=0;
     }
+	if(offset>=bmLength)
+		return -1;
     if(val)
         for(;((test&(0x01<<bitOffset))==0)&&bitOffset<8;bitOffset++);
     else
