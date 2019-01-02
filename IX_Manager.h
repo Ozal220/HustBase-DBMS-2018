@@ -77,7 +77,7 @@ int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const R
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
 
 //int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
-PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey);
+int FindNode(IX_IndexHandle *indexHandle,void *targetKey);
 //用于节点键值对排序中的插入移位
 int insertKeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, int attrLength);
 //删除移位

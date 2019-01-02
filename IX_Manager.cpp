@@ -18,7 +18,6 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	indexScan->compOp=compOp;
 	indexScan->pIXIndexHandle=indexHandle;
 	indexScan->value=value;
-	PF_PageHandle *pageStart;
 	//初始化页面号、索引项编号、页面句柄
 	switch (compOp) //小于、小于等于与等于从最小的索引项开始查找
 	{
@@ -27,15 +26,15 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	case LessT:
 		indexScan->pnNext=indexHandle->fileHeader.first_leaf;
 		indexScan->ridIx=0;
-		GetThisPage(indexHandle->fileHandle,indexScan->pnNext,pageStart);
-		indexScan->pfPageHandle=pageStart;
-		indexScan->currentPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));
+		GetThisPage(&indexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
+		indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 		return SUCCESS;
 	default:
 		break;
 	}
-	pageStart=FindNode(indexHandle,value);  //找到搜索开始的索引值所在节点
-	IX_Node *startPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));  //获得开始页的索引记录信息
+	int startPageNumber=FindNode(indexHandle,value);  //找到搜索开始的索引值所在节点
+	GetThisPage(&indexHandle->fileHandle,startPageNumber,indexScan->pfPageHandle);
+	IX_Node *startPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));  //获得开始页的索引记录信息
 	int indexOffset,rtn;
 	float targetVal,indexVal;
 	for(indexOffset=0;indexOffset<startPageControl->keynum;indexOffset++)
@@ -56,7 +55,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 		}
 		if(rtn==0)
 		{
-			indexScan->pnNext=pageStart->pFrame->page.pageNum;
+			indexScan->pnNext=indexScan->pfPageHandle->pFrame->page.pageNum;
 			indexScan->ridIx=(compOp==EQual||compOp==GEqual)?indexOffset:indexOffset+1;
 			indexScan->pfPageHandle=pageStart;
 			indexScan->currentPageControl=startPageControl;
@@ -68,7 +67,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 				return FAIL;
 			else
 			{
-				indexScan->pnNext=pageStart->pFrame->page.pageNum;
+				indexScan->pnNext=indexScan->pfPageHandle->pFrame->page.pageNum;
 				indexScan->ridIx=indexOffset;
 				indexScan->pfPageHandle=pageStart;
 				indexScan->currentPageControl=startPageControl;
@@ -84,7 +83,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 		{
 			indexScan->pnNext=startPageControl->brother;
 			indexScan->ridIx=0;
-			GetThisPage(indexHandle->fileHandle,startPageControl->brother,indexScan->pfPageHandle);
+			GetThisPage(&indexHandle->fileHandle,startPageControl->brother,indexScan->pfPageHandle);
 			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 			return SUCCESS;
 		}
@@ -93,7 +92,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 }
 
 //检查比较策略
-RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid)
+RC IX_GetNextEntry(IX_IndexScan *indexScan,RID *rid)
 {
 	if(indexScan->ridIx==indexScan->currentPageControl->keynum)
 	{
@@ -102,25 +101,25 @@ RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid)
 		else
 		{
 			indexScan->pnNext=indexScan->currentPageControl->brother;
-			GetThisPage(indexScan->pIXIndexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
+			GetThisPage(&indexScan->pIXIndexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
 			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 			indexScan->ridIx=0;
 		}
 	}
 	if(indexScan->compOp!=NO_OP)
 	{
-		switch (indexScan->pIXIndexHandle->fileHeader->attrType)
+		switch (indexScan->pIXIndexHandle->fileHeader.attrType)
 		{
 		case chars:
 			if(!CmpString(indexScan->currentPageControl->keys+
-				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID),
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader.keyLength+sizeof(RID),
 				indexScan->value,
 				indexScan->compOp))
 				return FAIL;
 		case ints:
 		case floats:
 			if(!CmpValue(*(float *)(indexScan->currentPageControl->keys+
-				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID)),
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader.keyLength+sizeof(RID)),
 				*(float *)indexScan->value,
 				indexScan->compOp))
 				return FAIL;
@@ -151,7 +150,9 @@ RC GetIndexTree(char *fileName, Tree *index)
 //注意处理返回值的问题
 RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID *rid)
 {
-	PF_PageHandle *pageInsert=FindNode(indexHandle,pData); //根据输入的数据找到即将操作的节点
+	int pageInsertNumber=FindNode(indexHandle,pData); //根据输入的数据找到即将操作的节点
+	PF_PageHandle *pageInsert=new PF_PageHandle;
+	GetThisPage(&indexHandle->fileHandle,pageInsertNumber,pageInsert);
 	//调用递归函数
 	RecursionInsert(indexHandle,pData,rid,pageInsert);
 	return FAIL;
@@ -168,9 +169,9 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 	else
 	{
 		//索引项数达到了最大，节点分裂
-		int splitOffset=int(pageControl->keynum/2+0.5);          //节点索引记录取半，向上取整
-		PF_PageHandle *brotherNode;                              //为当前节点分配一个兄弟节点
-		AllocatePage(indexHandle->fileHandle,brotherNode);
+		int splitOffset=int(pageControl->keynum/2+1);          //节点索引记录取半，向上取整
+		PF_PageHandle *brotherNode=new PF_PageHandle;                              //为当前节点分配一个兄弟节点
+		AllocatePage(&indexHandle->fileHandle,brotherNode);
 		pageControl->brother=brotherNode->pFrame->page.pageNum;  //标记兄弟节点的页号
 		IX_Node *broPageControl=(IX_Node *)(brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)); //兄弟节点的控制信息
 		broPageControl->keys=brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //计算兄弟节点的索引区与数据区
@@ -187,11 +188,14 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			broPageControl->keynum*sizeof(RID)); //搬移指针区（值区）数据
 		broPageControl->is_leaf=pageControl->is_leaf;  //标记兄弟节点叶子节点属性
 		broPageControl->brother=-1;    //兄弟节点暂时没有右兄弟节点
+		MarkDirty(brotherNode);
+		UnpinPage(brotherNode);
+		free(brotherNode);
 		//检查是否是当前的根节点在分裂（是否有父结点）
 		if(pageControl->parent==0)    //当前节点是根节点
 		{
-			PF_PageHandle *parentNode;
-			AllocatePage(indexHandle->fileHandle,parentNode);
+			PF_PageHandle *parentNode=new PF_PageHandle;
+			AllocatePage(&indexHandle->fileHandle,parentNode);
 			IX_Node *parentPageControl=(IX_Node *)(parentNode->pFrame->page.pData+sizeof(IX_FileHeader));;  //父结点控制信息
 			//初始化父结点信息
 			parentPageControl->keynum=2; //只有两个索引项目
@@ -200,7 +204,7 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			parentPageControl->brother=-1;
 			parentPageControl->keys=parentNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //计算父节点的索引区与数据区
 			parentPageControl->rids=(RID *)(parentPageControl->keys+
-				(indexHandle->fileHeader.order+1)*indexHandle->fileHeader->keyLength);
+				(indexHandle->fileHeader.order+1)*indexHandle->fileHeader.keyLength);
 			indexHandle->fileHeader.rootPage=parentNode->pFrame->page.pageNum;  //设置当前的根节点位置
 			memcpy(parentPageControl->keys,pageControl->keys,indexHandle->fileHeader.keyLength);  //当前节点的第一个索引值
 			parentPageControl->rids->bValid=true;
@@ -212,6 +216,9 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			parentPageControl->rids->slotNum=0;   //内节点的指针的槽值都为0
 			pageControl->parent=parentNode->pFrame->page.pageNum;  //当前节点指向父结点
 			broPageControl->parent=parentNode->pFrame->page.pageNum;  //兄弟节点指向父结点
+			MarkDirty(parentNode);
+			UnpinPage(parentNode);
+			free(parentNode);
 			return;
 		}
 		else
@@ -222,10 +229,12 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			broPointer->bValid=true;
 			broPointer->pageNum=brotherNode->pFrame->page.pageNum;
 			broPointer->slotNum=0;
-			PF_PageHandle *parentPage;
-			GetThisPage(indexHandle->fileHandle,pageControl->parent,parentPage);
+			PF_PageHandle *parentPage=new PF_PageHandle;
+			GetThisPage(&indexHandle->fileHandle,pageControl->parent,parentPage);
 			if(posInsert!=0)  //前面插入的时候插在了当前节点的最左侧，需要更新父节点的索引值
 				memcpy(parentPage->pFrame->page.pData,pageControl->keys,indexHandle->fileHeader.keyLength);
+			MarkDirty(pageInsert);
+			UnpinPage(pageInsert);
 			RecursionInsert(indexHandle,broPageControl->keys,broPointer,parentPage);
 		}
 	}
@@ -551,13 +560,16 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	if(CreateFile(fileName))
 		return FAIL;  
 	//如果成功
-	PF_FileHandle *file=NULL;
+	PF_FileHandle *file=new PF_FileHandle;
 	if(openFile((char *)fileName,file))
 		return FAIL;
 	//申请新页面用于存放索引首页（根节点）
-	PF_PageHandle *firstPage=NULL;
+	PF_PageHandle *firstPage=new PF_PageHandle;
 	if(AllocatePage(file,firstPage))
+	{
+		free(firstPage);
 		return FAIL;
+	}
 	// 页面上添加<索引控制信息>，其中rootPage和first_leaf默认设为1页，有误后期改
 	IX_FileHeader *fileHeader = (IX_FileHeader *)firstPage->pFrame->page.pData;
 	fileHeader->attrLength = attrLength;
@@ -585,6 +597,9 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	//bTree->root = null;   根结点从哪开始
 	*/
 	//关闭打开的文件
+	MarkDirty(firstPage);
+	UnpinPage(firstPage);
+	free(firstPage);
 	CloseFile(file);
 	return SUCCESS;
 }
@@ -593,14 +608,14 @@ RC OpenIndex(const char *fileName,IX_IndexHandle *indexHandle) {
 	//判断文件是否已打开
 	if(indexHandle->bOpen)  //若使用的句柄已经对应一个打开的文件
 		return RM_FHOPENNED;
-	if(openFile((char*)fileName,indexHandle->fileHandle))
+	if(openFile((char*)fileName,&indexHandle->fileHandle))
 		return FAIL;
 	indexHandle->bOpen=TRUE;
 	//获取记录管理基本信息
 	PF_PageHandle *ctrPage=NULL;
-	if(GetThisPage(indexHandle->fileHandle,1,ctrPage))
+	if(GetThisPage(&indexHandle->fileHandle,1,ctrPage))
 	{
-		CloseFile(indexHandle->fileHandle);
+		CloseFile(&indexHandle->fileHandle);
 		return FAIL;
 	}
 	indexHandle->fileHeader=(IX_FileHeader *)ctrPage->pFrame->page.pData;
@@ -611,7 +626,7 @@ RC CloseIndex(IX_IndexHandle *indexHandle){
 	//若已经关闭
 	if(!indexHandle->bOpen)
 		return IX_ISCLOSED;
-	if(CloseFile(indexHandle->fileHandle))	// 用filename关闭文件? 关闭文件没有对应的数据结构
+	if(CloseFile(&indexHandle->fileHandle))	// 用filename关闭文件? 关闭文件没有对应的数据结构
 		return FAIL;
 	indexHandle->bOpen=FALSE;
 	return SUCCESS;
@@ -777,14 +792,14 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 
 }
 
-PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
+int FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {
 	//定位根节点
 	int rootPage=indexHandle->fileHeader.rootPage;
-	PF_PageHandle *currentPage;
+	PF_PageHandle *currentPage=new PF_PageHandle;
 	int rtn;
 	float targetVal,indexVal;
-	GetThisPage(indexHandle->fileHandle,rootPage,currentPage);
+	GetThisPage(&indexHandle->fileHandle,rootPage,currentPage);
 	IX_Node *nodeInfo;
 	nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
 	int isLeaf=nodeInfo->is_leaf;
@@ -825,11 +840,13 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 				}
 			}
 			RID child=(RID)nodeInfo->rids[offset==0?0:offset-1];
-			GetThisPage(indexHandle->fileHandle,child.pageNum,currentPage);
+			UnpinPage(currentPage);
+			GetThisPage(&indexHandle->fileHandle,child.pageNum,currentPage);
 			nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
 			int isLeaf=nodeInfo->is_leaf;
 			break;
 		}
 	}
-	return currentPage;
+	UnpinPage(currentPage);
+	return currentPage->pFrame->page.pageNum;
 }
