@@ -88,50 +88,50 @@ RC execute(char * sql){
 	RC rc;
 	sql_str = get_sqlstr();//初始化
   	rc = parse(sql, sql_str);//只有两种返回结果SUCCESS和SQL_SYNTAX
-	
+	SelResult *res;
 	if (rc == SUCCESS)
 	{
 		int i = 0;
 		switch (sql_str->flag)
 		{
-			//case 1:
+			case 1:
 			////判断SQL语句为select语句
-
-			//break;
+			Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
+			break;
 
 			case 2:
 			//判断SQL语句为insert语句
-				//RC Insert(char *relName,int nValues,Value * values);
+				Insert(sql_str->sstr.ins.relName,sql_str->sstr.ins.nValues,sql_str->sstr.ins.values);
 			break;
 
 			case 3:	
 			//判断SQL语句为update语句
-				//RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *conditions);
+				Update(sql_str->sstr.upd.relName,sql_str->sstr.upd.attrName,&sql_str->sstr.upd.value,sql_str->sstr.upd.nConditions,sql_str->sstr.upd.conditions);
 			break;
 
 			case 4:					
 			//判断SQL语句为delete语句
-				//RC Delete(char *relName,int nConditions,Condition *conditions);
+				Delete(sql_str->sstr.del.relName,sql_str->sstr.del.nConditions,sql_str->sstr.del.conditions);
 			break;
 
 			case 5:
 			//判断SQL语句为createTable语句
-				//RC CreateTable(char *relName,int attrCount,AttrInfo *attributes);
+				CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
 			break;
 
 			case 6:	
 			//判断SQL语句为dropTable语句
-				//RC DropTable(char *relName);
+				DropTable(sql_str->sstr.drt.relName);
 			break;
 
 			case 7:
 			//判断SQL语句为createIndex语句
-				//RC CreateIndex(char *indexName,char *relName,char *attrName);
+				CreateIndex(sql_str->sstr.crei.indexName,sql_str->sstr.crei.relName,sql_str->sstr.crei.attrName);
 			break;
 	
 			case 8:	
 			//判断SQL语句为dropIndex语句
-				//RC DropIndex(char *indexName);
+				DropIndex(sql_str->sstr.dri.indexName);
 			break;
 			
 			case 9:
@@ -441,7 +441,6 @@ RC Insert(char *relName,int nValues,Value *values){
 	RM_FileHandle *rm_data,*rm_table,*rm_column;
 	char *value;//读取数据表信息
 	RID *rid;
-	RC rc;
 	column *Column, *ctmp;//用于存储一个表的所有属性的值
 	RM_FileScan FileScan;
 	RM_Record rectab, reccol;
@@ -450,31 +449,27 @@ RC Insert(char *relName,int nValues,Value *values){
 	//打开数据表,系统表，系统列文件
 	rm_data = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_data->bOpen = false;
-	rc = RM_OpenFile(relName, rm_data);
-	if (rc != SUCCESS){
+	if (RM_OpenFile(relName, rm_data)!= SUCCESS){
 		AfxMessageBox("记录文件打开失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_table->bOpen = false;
-	rc = RM_OpenFile("SYSTABLES", rm_table);
-	if (rc != SUCCESS){
+	if (RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS){
 		AfxMessageBox("系统表文件打开失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_column->bOpen = false;
-	rc = RM_OpenFile("SYSCOLUMNS", rm_column);
-	if (rc != SUCCESS){
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS){
 		AfxMessageBox("系统列文件打开失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	//打开系统表文件进行扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_table, 0, NULL);
-	if (rc != SUCCESS){
+	if (OpenScan(&FileScan, rm_table, 0, NULL)!= SUCCESS){
 		AfxMessageBox("系统表文件扫描失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	//循环查找表名为relName对应的系统表中的记录,读取属性数量
 	while (GetNextRec(&FileScan, &rectab) == SUCCESS){
@@ -492,10 +487,9 @@ RC Insert(char *relName,int nValues,Value *values){
 	}
 	//打开系统列文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_column, 0, NULL);
-	if (rc != SUCCESS){
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
 		AfxMessageBox("系统列文件扫描失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	//根据之前读取的系统表中信息，读取属性信息，结果保存在ctmp中
 	Column = (column *)malloc(attrcount*sizeof(column));
@@ -508,9 +502,7 @@ RC Insert(char *relName,int nValues,Value *values){
 				memcpy(&(ctmp->attrtype), reccol.pData + 42, sizeof(AttrType));
 				memcpy(&(ctmp->attrlength), reccol.pData + 42 + sizeof(AttrType), sizeof(int));
 				memcpy(&(ctmp->attroffset), reccol.pData + 42 + sizeof(int)+sizeof(AttrType), sizeof(int));
-				rc = GetNextRec(&FileScan, &reccol);
-				if (rc != SUCCESS)
-					break;
+				if (GetNextRec(&FileScan, &reccol)!= SUCCESS)break;
 			}
 			break;
 		}
@@ -525,17 +517,50 @@ RC Insert(char *relName,int nValues,Value *values){
 	rid = (RID*)malloc(sizeof(RID));
 	rid->bValid = false;
 	InsertRec(rm_data, value, rid);
-	free(value);
-	free(rid);
-	free(Column);
 	//关闭系统列文件扫描
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	//打开系统列文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_column, 0, NULL);
-	if (rc != SUCCESS){
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
 		AfxMessageBox("系统列文件扫描失败");
-		return rc;
+		return SQL_SYNTAX;
+	}
+	//扫描系统列文件，如果该属性上存在索引，则插入索引项
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+			for (int i = 0; i < attrcount; i++){
+				if((reccol.pData+42+3*sizeof(int))=="1"){//ix_flag为1，该属性上存在索引，需插入新的索引项
+					IX_IndexHandle *rm_index;
+					memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+					rm_index = (IX_IndexHandle *)malloc(sizeof(IX_IndexHandle));//打开索引文件
+	                rm_index->bOpen = false;
+	                if(OpenIndex(index, rm_index)!=SUCCESS){
+		               AfxMessageBox("索引文件打开失败");
+		               return SQL_SYNTAX;
+	                }
+					char*length,*offset;
+					memcpy(length,reccol.pData+42+sizeof(int),sizeof(int));
+		            memcpy(offset,reccol.pData+42+2*sizeof(int),sizeof(int));
+					char *data = (char *)malloc((int)length);
+		            memcpy(data,value+(int)offset,(int)length);
+		            InsertEntry(rm_index,data,&(reccol.rid));
+					if(CloseIndex(rm_index)!=SUCCESS)return SQL_SYNTAX;
+					free(rm_index);
+				}
+			}
+			break;
+		}
+	}
+	free(value);
+	free(rid);
+	free(Column);
+/*	//关闭系统列文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	//打开系统列文件扫描
+	FileScan.bOpen = false;
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+		AfxMessageBox("系统列文件扫描失败");
+		return SQL_SYNTAX;
 	}
 	//扫描系统列文件，如果该属性上存在索引，则删除原有索引重新创建
 	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
@@ -552,34 +577,31 @@ RC Insert(char *relName,int nValues,Value *values){
 			}
 			break;
 		}
-	}
+	}*/
 	//关闭系统列文件扫描
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	//关闭文件
-	rc = RM_CloseFile(rm_data);
-	if (rc != SUCCESS){
+	if (RM_CloseFile(rm_data)!= SUCCESS){
 		AfxMessageBox("记录文件关闭失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	free(rm_data);
-	rc = RM_CloseFile(rm_table);
-	if (rc != SUCCESS){
+	if (RM_CloseFile(rm_table)!= SUCCESS){
 		AfxMessageBox("系统表文件关闭失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	free(rm_table);
-	rc = RM_CloseFile(rm_column);
-	if (rc != SUCCESS){
+	if (RM_CloseFile(rm_column)!= SUCCESS){
 		AfxMessageBox("系统列文件关闭失败");
-		return rc;
+		return SQL_SYNTAX;
 	}
 	free(rm_column);
 	return SUCCESS;
 }
 
 RC Delete(char *relName,int nConditions,Condition *conditions){
+	CFile tmp;
 	RM_FileHandle *rm_data,*rm_table,*rm_column;
-	RC rc;
 	RM_FileScan FileScan;
 	RM_Record recdata,rectab,reccol;
 	column *Column, *ctmp,*ctmpleft,*ctmpright;
@@ -590,29 +612,21 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 	char *charleft,*charright;
 	float floatleft,floatright;//属性的值
 	AttrType attrtype;
-
+	char index[21],attr[21];
 	//打开记录,系统表，系统列文件
 	rm_data = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_data->bOpen = false;
-	rc = RM_OpenFile(relName, rm_data);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_OpenFile(relName, rm_data)!= SUCCESS)return SQL_SYNTAX;
 	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_table->bOpen = false;
-	rc = RM_OpenFile("SYSTABLES", rm_table);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
 	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_column->bOpen = false;
-	rc = RM_OpenFile("SYSCOLUMNS", rm_column);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS)return SQL_SYNTAX;
 
 	//打开系统表文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_table, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
+	if (OpenScan(&FileScan, rm_table, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 	//循环查找表名为relName对应的系统表中的记录,记录属性数量attrcount
 	while (GetNextRec(&FileScan, &rectab) == SUCCESS){
 		if (strcmp(relName, rectab.pData) == 0){
@@ -624,9 +638,7 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	//打开系统列文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_column, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 	//根据之前读取的系统表中信息，读取属性信息，结果保存在ctmp中
 	Column = (column *)malloc(attrcount*sizeof(column));
 	ctmp = Column;
@@ -638,9 +650,7 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 				memcpy(&(ctmp->attrtype), reccol.pData + 42, sizeof(AttrType));
 				memcpy(&(ctmp->attrlength), reccol.pData + 42 + sizeof(AttrType), sizeof(int));
 				memcpy(&(ctmp->attroffset), reccol.pData + 42 + sizeof(int)+sizeof(AttrType), sizeof(int));				
-				rc = GetNextRec(&FileScan, &reccol);
-				if (rc != SUCCESS)
-					break;
+				if(GetNextRec(&FileScan, &reccol)!= SUCCESS)break;
 			}
 			break;
 		}
@@ -649,9 +659,7 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
 	//打开记录文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_data, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
+	if (OpenScan(&FileScan, rm_data, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 	//循环查找表名为relName对应的数据表中的记录,并将记录信息保存于recdata中
 	while (GetNextRec(&FileScan, &recdata) == SUCCESS){	//取记录做判断
 		for (i = 0, torf = 1,contmp = conditions;i < nConditions; i++, contmp++){//conditions条件逐一判断
@@ -810,85 +818,121 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 
 		if (torf == 1){
 			DeleteRec(rm_data, &(recdata.rid));
+			//打开系统列文件扫描
+			FileScan.bOpen = false;
+			if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+				AfxMessageBox("系统列文件扫描失败");
+				return SQL_SYNTAX;
+			}
+			//扫描系统列文件，如果该属性上存在索引，则删除索引项
+			while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+				if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+					for (int i = 0; i < attrcount; i++){
+						if((reccol.pData+42+3*sizeof(int))=="1"){//ix_flag为1，该属性上存在索引，需删除原有的索引项
+							IX_IndexHandle *rm_index;
+							memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+							rm_index = (IX_IndexHandle *)malloc(sizeof(IX_IndexHandle));//打开索引文件
+			                rm_index->bOpen = false;
+			                if(OpenIndex(index, rm_index)!=SUCCESS){
+				               AfxMessageBox("索引文件打开失败");
+				               return SQL_SYNTAX;
+			                }
+							char*length,*offset;
+							memcpy(length,reccol.pData+42+sizeof(int),sizeof(int));
+				            memcpy(offset,reccol.pData+42+2*sizeof(int),sizeof(int));
+							char *data = (char *)malloc((int)length);
+							memcpy(data,recdata.pData+(int)offset,(int)length);
+				            DeleteEntry(rm_index,data,&(recdata.rid));
+							if(CloseIndex(rm_index)!=SUCCESS)return SQL_SYNTAX;//关闭索引文件
+							free(rm_index);
+						}
+					}
+					break;
+				}
+			}
 		}	
 	}
 	free(Column);
 	//关闭记录文件扫描
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+/*	//打开系统列文件扫描
+	FileScan.bOpen = false;
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+		AfxMessageBox("系统列文件扫描失败");
+		return SQL_SYNTAX;
+	}
+	//扫描系统列文件，如果该属性上存在索引，则删除原有索引重新创建
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+			for (int i = 0; i < attrcount; i++){
+				if((reccol.pData+42+3*sizeof(int))=="1"){
+					memcpy(attr,reccol.pData+21,21);
+					memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+					memcpy(reccol.pData+42+3*sizeof(int),"0",1);//索引标记项改为0
+			        if (UpdateRec(rm_column,&reccol)!=SUCCESS)return SQL_SYNTAX;
+					tmp.Remove((LPCTSTR)index);//删除索引文件
+					CreateIndex(index,relName,attr);
+				}
+			}
+			break;
+		}
+	}
+	//关闭系统列文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;*/
 	//关闭文件
-	rc = RM_CloseFile(rm_table);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_CloseFile(rm_table)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_table);
-	rc = RM_CloseFile(rm_column);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_CloseFile(rm_column)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_column);
-	rc = RM_CloseFile(rm_data);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_CloseFile(rm_data)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_data);
 	return SUCCESS;
 }
 
-RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *conditions){
-	//只能进行单值更新
+RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *conditions){//只能进行单值更新
 	RM_FileHandle *rm_data, *rm_table, *rm_column;
-	RC rc;
 	RM_FileScan FileScan;
 	RM_Record recdata, rectab, reccol;
 	column *Column, *ctmp,*cupdate,*ctmpleft,*ctmpright;
 	Condition *contmp;
 	int i, torf;//是否符合删除条件
-	int attrcount;//临时 属性数量
+	int attrcount;//属性数量
 	int intleft,intright;
 	char *charleft,*charright;
-	float floatleft,floatright;//临时 属性的值
+	float floatleft,floatright;//属性的值
 	AttrType attrtype;
-
-	//打开数据表,系统表，系统列文件
+	//打开记录,系统表，系统列文件
 	rm_data = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_data->bOpen = false;
-	rc = RM_OpenFile(relName, rm_data);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_OpenFile(relName, rm_data)!= SUCCESS)return SQL_SYNTAX;
 	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_table->bOpen = false;
-	rc = RM_OpenFile("SYSTABLES", rm_table);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
 	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
 	rm_column->bOpen = false;
-	rc = RM_OpenFile("SYSCOLUMNS", rm_column);
-	if (rc != SUCCESS)
-		return rc;
-
-	//通过getdata函数获取系统表信息,得到的信息保存在rectab中
+	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS)return SQL_SYNTAX;
+	//打开系统表文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_table, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
-	//循环查找表名为relName对应的系统表中的记录,并将记录信息保存于rectab中
+	if (OpenScan(&FileScan, rm_table, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
+	//循环查找表名为relName对应的系统表中的记录,记录属性数量attrcount
 	while (GetNextRec(&FileScan, &rectab) == SUCCESS){
 		if (strcmp(relName, rectab.pData) == 0){
 			memcpy(&attrcount, rectab.pData + 21, sizeof(int));
 			break;
 		}
 	}
-
-	//通过getdata函数获取系统列信息,得到的信息保存在reccol中
+	//关闭系统表文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	//打开系统列文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_column, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
-	//循环查找表名为relName对应的系统表中的记录,并将记录信息保存于rectab中
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 	//根据之前读取的系统表中信息，读取属性信息，结果保存在ctmp中
 	Column = (column *)malloc(attrcount*sizeof(column));
 	cupdate = (column *)malloc(sizeof(column));
 	ctmp = Column;
 	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
 		if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
-			for (int i = 0; i < attrcount; i++){
+			for (int i = 0; i < attrcount; i++,ctmp++){
 				memcpy(ctmp->tablename, reccol.pData, 21);
 				memcpy(ctmp->attrname, reccol.pData + 21, 21);
 				memcpy(&(ctmp->attrtype), reccol.pData + 42, sizeof(AttrType));
@@ -897,20 +941,16 @@ RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *c
 				if ((strcmp(relName,ctmp->tablename) == 0) && (strcmp(attrName,ctmp->attrname) == 0)){
 					cupdate = ctmp;//找到要更新数据 对应的属性
 				}
-				rc = GetNextRec(&FileScan, &reccol);
-				if (rc != SUCCESS)
-					break;
-				ctmp++;
+				if (GetNextRec(&FileScan, &reccol)!= SUCCESS)break;
 			}
 			break;
 		}
 	}
-
-	//通过getdata函数获取系统表信息,得到的信息保存在recdata中
+	//关闭系统列文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	//打开记录文件扫描
 	FileScan.bOpen = false;
-	rc = OpenScan(&FileScan, rm_data, 0, NULL);
-	if (rc != SUCCESS)
-		return rc;
+	if (OpenScan(&FileScan, rm_data, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 	//循环查找表名为relName对应的数据表中的记录,并将记录信息保存于recdata中
 	while (GetNextRec(&FileScan, &recdata) == SUCCESS){
 		for (i = 0, torf = 1, contmp = conditions; i < nConditions; i++, contmp++){//conditions条件逐一判断
@@ -1071,20 +1111,39 @@ RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *c
 			UpdateRec(rm_data, &recdata);
 		}
 	}
-
 	free(Column);
-	//关闭文件句柄
-	rc = RM_CloseFile(rm_table);
-	if (rc != SUCCESS)
-		return rc;
+/*	//打开系统列文件扫描
+	FileScan.bOpen = false;
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+		AfxMessageBox("系统列文件扫描失败");
+		return SQL_SYNTAX;
+	}
+	//扫描系统列文件，如果该属性上存在索引，则删除原有索引重新创建
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+			for (int i = 0; i < attrcount; i++){
+				if((reccol.pData+42+3*sizeof(int))=="1"){
+					memcpy(attr,reccol.pData+21,21);
+					memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+					memcpy(reccol.pData+42+3*sizeof(int),"0",1);//索引标记项改为0
+			        if (UpdateRec(rm_column,&reccol)!=SUCCESS)return SQL_SYNTAX;
+					tmp.Remove((LPCTSTR)index);//删除索引文件
+					CreateIndex(index,relName,attr);
+				}
+			}
+			break;
+		}
+	}
+	//关闭系统列文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;*/
+	//关闭记录文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	//关闭文件
+	if (RM_CloseFile(rm_table)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_table);
-	rc = RM_CloseFile(rm_column);
-	if (rc != SUCCESS)
-		return rc;
+    if (RM_CloseFile(rm_column)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_column);
-	rc = RM_CloseFile(rm_data);
-	if (rc != SUCCESS)
-		return rc;
+	if (RM_CloseFile(rm_data)!= SUCCESS)return SQL_SYNTAX;
 	free(rm_data);
 	return SUCCESS;	
 }
