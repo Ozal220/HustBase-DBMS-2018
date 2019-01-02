@@ -8,29 +8,29 @@
 typedef int SlotNum;
 
 typedef struct {	
-	PageNum pageNum;	//¼ÇÂ¼ËùÔÚÒ³µÄÒ³ºÅ
-	SlotNum slotNum;		//¼ÇÂ¼µÄ²å²ÛºÅ
-	bool bValid; 			//true±íÊ¾ÎªÒ»¸öÓÐÐ§¼ÇÂ¼µÄ±êÊ¶·û
+	PageNum pageNum;	//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Ò³ï¿½ï¿½
+	SlotNum slotNum;		//ï¿½ï¿½Â¼ï¿½Ä²ï¿½Ûºï¿½
+	bool bValid; 			//trueï¿½ï¿½Ê¾ÎªÒ»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Â¼ï¿½Ä±ï¿½Ê¶ï¿½ï¿½
 }RID;
 
 typedef struct{
-	bool bValid;		 // False±íÊ¾»¹Î´±»¶ÁÈë¼ÇÂ¼
-	RID  rid; 		 // ¼ÇÂ¼µÄ±êÊ¶·û 
-	char *pData; 		 //¼ÇÂ¼Ëù´æ´¢µÄÊý¾Ý 
+	bool bValid;		 // Falseï¿½ï¿½Ê¾ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
+	RID  rid; 		 // ï¿½ï¿½Â¼ï¿½Ä±ï¿½Ê¶ï¿½ï¿½ 
+	char *pData; 		 //ï¿½ï¿½Â¼ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 }RM_Record;
 
-//¶¨Òå¼ÇÂ¼ÐÅÏ¢½á¹¹£¬²Î¿¼Ö¸µ¼ÊéµÄÉè¼Æ
+//ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½Ï¢ï¿½á¹¹ï¿½ï¿½ï¿½Î¿ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 typedef struct{
 	int recNum;
 	int recSize;
 	int recPerPage;
-	int recordOffset; //Ê×Ìõ¼ÇÂ¼Æ«ÒÆÁ¿(ÓÉÓÚÎ»Í¼µÄ´æÔÚ¼°Æä´óÐ¡²»±ä)
-	//int fileNum; //¸Ã±íÊ¹ÓÃµÄ·ÖÒ³ÎÄ¼þÊý
+	int recordOffset; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼Æ«ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½Î»Í¼ï¿½Ä´ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½)
+	//int fileNum; //ï¿½Ã±ï¿½Ê¹ï¿½ÃµÄ·ï¿½Ò³ï¿½Ä¼ï¿½ï¿½ï¿½
 }RM_recControl;
 
 typedef struct
 {
-	int bLhsIsAttr,bRhsIsAttr;//×ó¡¢ÓÒÊÇÊôÐÔ£¨1£©»¹ÊÇÖµ£¨0£©
+	int bLhsIsAttr,bRhsIsAttr;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô£ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½0ï¿½ï¿½
 	AttrType attrType;
 	int LattrLength,RattrLength;
 	int LattrOffset,RattrOffset;
@@ -38,43 +38,42 @@ typedef struct
 	void *Lvalue,*Rvalue;
 }Con;
 
-typedef struct{//ÎÄ¼þ¾ä±ú
-	bool bOpen;//¾ä±úÊÇ·ñ´ò¿ª£¨ÊÇ·ñÕýÔÚ±»Ê¹ÓÃ£©
-	//ÐèÒª×Ô¶¨ÒåÆäÄÚ²¿½á¹¹
+typedef struct{//ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½
+	bool bOpen;//ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ò¿ª£ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½Ú±ï¿½Ê¹ï¿½Ã£ï¿½
+	//ï¿½ï¿½Òªï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½á¹¹
 	
 	/*********************
-	¸ù¾Ý±¾ÊµÑéÖÐ·ÖÒ³ÎÄ¼þµÄ¶¨Òå·½·¨£¬Ò»¸ö·ÖÒ³ÎÄ¼þ´óÐ¡ÖÁ¶àÎª127MB¡£
-	ÏÖ¿¼ÂÇ´æÔÚÒ»¸ö¾Þ´óµÄ±í£¬Æä´óÐ¡´óÓÚ·ÖÒ³ÎÄ¼þ×Ü´óÐ¡£¬´ËÊ±ÐèÒª¶à¸ö
-	·ÖÒ³ÎÄ¼þ´æ´¢
+	ï¿½ï¿½ï¿½Ý±ï¿½Êµï¿½ï¿½ï¿½Ð·ï¿½Ò³ï¿½Ä¼ï¿½ï¿½Ä¶ï¿½ï¿½å·½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ò³ï¿½Ä¼ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½Îª127MBï¿½ï¿½
+	ï¿½Ö¿ï¿½ï¿½Ç´ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Þ´ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½Ú·ï¿½Ò³ï¿½Ä¼ï¿½ï¿½Ü´ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½ï¿½ï¿½
+	ï¿½ï¿½Ò³ï¿½Ä¼ï¿½ï¿½æ´¢
 	*********************/
-	/*ÏÈ²»¹Ü¶à¸öÎÄ¼þµÄÇé¿öÁË
-	char *fileName;  //ÎÄ¼þÃû£¨±íÃû£©
-	int fileNum;  //Ê¹ÓÃµÄ·ÖÒ³ÎÄ¼þÊýÁ¿
-	PF_FileHandle *file[5];  //×î¶à5¸ö·ÖÒ³ÎÄ¼þµÄ´óÐ¡
+	/*ï¿½È²ï¿½ï¿½Ü¶ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	char *fileName;  //ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	int fileNum;  //Ê¹ï¿½ÃµÄ·ï¿½Ò³ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+	PF_FileHandle *file[5];  //ï¿½ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½Ò³ï¿½Ä¼ï¿½ï¿½Ä´ï¿½Ð¡
 	*/
 
-	//´æ´¢¼ÇÂ¼µÄ»ù±¾ÐÅÏ¢£¬Óë¼ÇÂ¼ÐÅÏ¢½á¹¹ÀàËÆ£¬Ê¹µÃ´ò¿ªÎÄ¼þºóÂíÉÏÄÜ»ñµÃ¼ÇÂ¼¹ÜÀíÐÅÏ¢£¬ÒÔºó²»ÐèÒª¶à´Î·ÃÎÊ¼ÇÂ¼¹ÜÀíÒ³Ãæ
-	//µ«¸ÃÐÅÏ¢ÐèÒª¼°Ê±¸üÐÂ
+	//ï¿½æ´¢ï¿½ï¿½Â¼ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½Ï¢ï¿½á¹¹ï¿½ï¿½ï¿½Æ£ï¿½Ê¹ï¿½Ã´ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü»ï¿½Ã¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ôºï¿½ï¿½ï¿½Òªï¿½ï¿½Î·ï¿½ï¿½Ê¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Òªï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½
 	int *recNum;
 	int recSize;
 	int recPerPage;
 	int recOffset;
-	int bitmapLength;  //¿ØÖÆÒ³µÄÎ»Í¼´óÐ¡£¨°´×Ö½Ú¼Æ£©
-	bitmanager *pageCtlBitmap;   //Ò³ÃæÐÅÏ¢µÄÎ»Í¼¹ÜÀí¶ÔÏó
-	bitmanager *recCtlBitmap;    //¼ÇÂ¼ÐÅÏ¢µÄÎ»Í¼¹ÜÀí¶ÔÏó
-	PF_FileHandle *file;
+	int bitmapLength;  //ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Î»Í¼ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö½Ú¼Æ£ï¿½
+	bitmanager *pageCtlBitmap;   //Ò³ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	bitmanager *recCtlBitmap;    //ï¿½ï¿½Â¼ï¿½ï¿½Ï¢ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	PF_FileHandle file;
 }RM_FileHandle;
 
 typedef struct{
-	bool  bOpen;		//É¨ÃèÊÇ·ñ´ò¿ª 
-	RM_FileHandle  *pRMFileHandle;		//É¨ÃèµÄ¼ÇÂ¼ÎÄ¼þ¾ä±ú
-	int  conNum;		//É¨ÃèÉæ¼°µÄÌõ¼þÊýÁ¿ 
-	Con  *conditions;	//É¨ÃèÉæ¼°µÄÌõ¼þÊý×éÖ¸Õë
-    PF_PageHandle  PageHandle; //´¦ÀíÖÐµÄÒ³Ãæ¾ä±ú
-	PageNum  pn; 	//É¨Ãè¼´½«´¦ÀíµÄÒ³ÃæºÅ
-	SlotNum  sn;		//É¨Ãè¼´½«´¦ÀíµÄ²å²ÛºÅ
+	bool  bOpen;		//É¨ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ 
+	RM_FileHandle  *pRMFileHandle;		//É¨ï¿½ï¿½Ä¼ï¿½Â¼ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½
+	int  conNum;		//É¨ï¿½ï¿½ï¿½æ¼°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	Con  *conditions;	//É¨ï¿½ï¿½ï¿½æ¼°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
+    PF_PageHandle  PageHandle; //ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Ò³ï¿½ï¿½ï¿½ï¿½
+	PageNum  pn; 	//É¨ï¿½è¼´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½
+	SlotNum  sn;		//É¨ï¿½è¼´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½Ûºï¿½
 }RM_FileScan;
-
 
 
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec);
