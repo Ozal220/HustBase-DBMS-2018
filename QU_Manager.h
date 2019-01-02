@@ -16,6 +16,5 @@ void Init_Result(SelResult * res);
 void Destory_Result(SelResult * res);
 
 RC Query(char * sql,SelResult * res);
-
 RC Select(int nSelAttrs,RelAttr **selAttrs,int nRelations,char **relations,int nConditions,Condition *conditions,SelResult * res);
 #endif

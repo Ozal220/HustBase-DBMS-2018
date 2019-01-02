@@ -62,7 +62,7 @@ typedef struct{//文件句柄
 	int bitmapLength;  //控制页的位图大小（按字节计）
 	bitmanager *pageCtlBitmap;   //页面信息的位图管理对象
 	bitmanager *recCtlBitmap;    //记录信息的位图管理对象
-	PF_FileHandle *file;
+	PF_FileHandle file;
 }RM_FileHandle;
 
 typedef struct{
@@ -74,7 +74,6 @@ typedef struct{
 	PageNum  pn; 	//扫描即将处理的页面号
 	SlotNum  sn;		//扫描即将处理的插槽号
 }RM_FileScan;
-
 
 
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec);
