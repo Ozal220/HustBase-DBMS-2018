@@ -81,7 +81,7 @@ int FindNode(IX_IndexHandle *indexHandle,void *targetKey);
 //用于节点键值对排序中的插入移位
 int insertKeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, int attrLength);
 //删除移位
-int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength);
+void deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength);
 void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_PageHandle *pageInsert);
 //索引删除的递归调用
 RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_PageHandle *pageDelete);
@@ -94,5 +94,7 @@ void findLeftBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle, const
 void getFromLeft(PF_PageHandle *pageHandle, PF_PageHandle *leftHandle, int order, AttrType attrType, int attrLength, const int threshold, int &status);
 // 以迭代的方式删除或修改父节点的节点值
 void deleteOrAlterParentNode(PF_PageHandle *parentPageHandle, PF_FileHandle *fileHandle, int order, AttrType attrType, int attrLength, PageNum nodePageNum, void *pData, int parentOrder, bool isDelete);
+void getFromBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle,const int order,const AttrType attrType,const int attrLength,const int threshold);
+
 
 #endif

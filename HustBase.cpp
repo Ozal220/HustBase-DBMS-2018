@@ -156,6 +156,8 @@ void CHustBaseApp::OnAppAbout()
 {
 	CAboutDlg aboutDlg;
 	aboutDlg.DoModal();
+
+	//CreateDB("C:\\EXPfiles\\DBMSWork\\HustBase-DBMS-2018","shit");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -164,14 +166,83 @@ void CHustBaseApp::OnAppAbout()
 void CHustBaseApp::OnCreateDB()
 {
 	//关联创建数据库按钮，此处应提示用户输入数据库的存储路径和名称，并调用CreateDB函数创建数据库。
+	//创建文件浏览窗口以获得用户文件路径输入
+	CFileDialog dialog(TRUE);    //不需要设定默认路径等参数
+	dialog.m_ofn.lpstrTitle="请选择数据库的位置,并在对话框中输入数据库名";
+	if(dialog.DoModal()==IDOK)
+	{
+		CString filePath,fileName,actualFilePath;
+		filePath=dialog.GetPathName();
+		fileName=dialog.GetFileTitle();
+		int actualPathLength=filePath.GetLength()-fileName.GetLength()-1; //减1是为了去掉‘/’
+		actualFilePath=filePath.Left(actualPathLength);  //获得不包含即将创建的表文件夹的文件夹地址
+		//将CString类型数据转换为char*类型输入
+		char *filePathC=(char *)malloc(sizeof(actualFilePath));
+		strcpy(filePathC,actualFilePath);
+		char *fileNameC=(char *)malloc(sizeof(fileName));
+		strcpy(fileNameC,fileName);
+		CreateDB(filePathC,fileNameC);
+	}
 }
 
 void CHustBaseApp::OnOpenDB() 
 {
 	//关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，并在界面左侧的控件中显示数据库中的表、列信息。
+
+	//使用文件夹浏览窗口获得文件夹目录
+
+	//BROWSEINFO folder;
+	//ZeroMemory(&folder,sizeof(BROWSEINFO));
+	//LPMALLOC pMalloc;
+	//LPITEMIDLIST getFolder=SHBrowseForFolder(&folder);
+	//if(getFolder!=NULL)
+	//{
+	//	TCHAR *dbPath=new TCHAR[MAX_PATH];
+	//	SHGetPathFromIDList(getFolder,dbPath);
+	//	if(SUCCEEDED(SHGetMalloc(&pMalloc)))
+	//	{
+	//		pMalloc->Free(getFolder);
+	//		pMalloc->Release();
+	//	}
+	//	获得文件名
+	//	int offset;
+	//	for(offset=0;dbPath[offset]!='\0';offset++);
+	//	for(;dbPath[offset]!='\\';offset--);
+	//	char *dbName=(char *)malloc(50);  //假设数据库名长度不大于50字节
+	//	memset(dbName,0,50);
+	//	strcpy(dbName,dbPath+offset+1);
+	//	DropDB(dbName);
+	//}
+
 }
 
 void CHustBaseApp::OnDropDb() 
 {
 	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
+
+	//使用文件浏览窗口获得需要删除的数据库
+	BROWSEINFO folder;
+	ZeroMemory(&folder,sizeof(BROWSEINFO));
+	LPMALLOC pMalloc;
+	LPITEMIDLIST getFolder=SHBrowseForFolder(&folder);
+	if(getFolder!=NULL)
+	{
+		TCHAR *dbPath=new TCHAR[MAX_PATH];
+		SHGetPathFromIDList(getFolder,dbPath);
+		if(SUCCEEDED(SHGetMalloc(&pMalloc)))
+		{
+			pMalloc->Free(getFolder);
+			pMalloc->Release();
+		}
+		//获得文件名
+		int offset;
+		for(offset=0;dbPath[offset]!='\0';offset++);
+		for(;dbPath[offset]!='\\';offset--);
+		char *dbName=(char *)malloc(50);  //假设数据库名长度不大于50字节
+		memset(dbName,0,50);
+		strcpy(dbName,dbPath+offset+1);
+		DropDB(dbName);
+		free(dbName);
+		free(dbPath);
+	}
 }

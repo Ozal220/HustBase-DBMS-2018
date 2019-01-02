@@ -18,6 +18,7 @@ struct column{
 		char ix_flag;//索引是否存在
 		char indexname[21];//索引名
 }col;
+
 void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
 	if(s_sql.find("select") == 0){//是查询语句则执行以下，否则跳过
@@ -149,12 +150,17 @@ RC execute(char * sql){
 }
 
 RC CreateDB(char *dbpath,char *dbname){//包括2个系统文件、0到多个记录文件和0到多个索引文件
-	    if(CreateDirectory(strcat(dbpath,strcat("\\",dbname)),NULL)==SUCCESS){
-			SetCurrentDirectory(strcat(dbpath,strcat("\\",dbname)));
-			if(RM_CreateFile("SYSTABLES",sizeof(tab))==SUCCESS&&RM_CreateFile("SYSCOLUMNS",sizeof(col))==SUCCESS)		
-			    return SUCCESS;
-		}
-		return SQL_SYNTAX;
+	char *finalPath=(char *)malloc(40);
+	memset(finalPath,0,40);
+	strcat(finalPath,dbpath);
+	strcat(finalPath,"\\");
+	strcat(finalPath,dbname);
+    if(CreateDirectory(finalPath,NULL)){
+		SetCurrentDirectory(finalPath);
+		if(RM_CreateFile("SYSTABLES",sizeof(tab))==SUCCESS&&RM_CreateFile("SYSCOLUMNS",sizeof(col))==SUCCESS)		
+		    return SUCCESS;
+	}
+	return SQL_SYNTAX;
 }
 
 RC DropDB(char *dbname){
@@ -177,6 +183,7 @@ RC DropDB(char *dbname){
 }
 
 RC OpenDB(char *dbname){
+
 	return SUCCESS;
 }
 
