@@ -18,5 +18,6 @@ void Destory_Result(SelResult * res){
 }
 
 RC Query(char * sql,SelResult * res){
+
 	return SUCCESS;
 }

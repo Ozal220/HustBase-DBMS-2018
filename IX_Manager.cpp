@@ -18,24 +18,23 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	indexScan->compOp=compOp;
 	indexScan->pIXIndexHandle=indexHandle;
 	indexScan->value=value;
-	PF_PageHandle *pageStart;
-	//³õÊ¼»¯Ò³ÃæºÅ¡¢Ë÷ÒýÏî±àºÅ¡¢Ò³Ãæ¾ä±ú
-	switch (compOp) //Ð¡ÓÚ¡¢Ð¡ÓÚµÈÓÚÓëµÈÓÚ´Ó×îÐ¡µÄË÷ÒýÏî¿ªÊ¼²éÕÒ
+	//åˆå?‹åŒ–é¡µé¢å·ã€ç´¢å¼•é¡¹ç¼–å·ã€é¡µé¢å¥æŸ?
+	switch (compOp) //å°äºŽã€å°äºŽç­‰äºŽä¸Žç­‰äºŽä»Žæœ€å°çš„ç´¢å¼•é¡¹å¼€å§‹æŸ¥æ‰?
 	{
 	case NO_OP:
 	case LEqual:
 	case LessT:
 		indexScan->pnNext=indexHandle->fileHeader.first_leaf;
 		indexScan->ridIx=0;
-		GetThisPage(indexHandle->fileHandle,indexScan->pnNext,pageStart);
-		indexScan->pfPageHandle=pageStart;
-		indexScan->currentPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));
+		GetThisPage(&indexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
+		indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 		return SUCCESS;
 	default:
 		break;
 	}
-	pageStart=FindNode(indexHandle,value);  //ÕÒµ½ËÑË÷¿ªÊ¼µÄË÷ÒýÖµËùÔÚ½Úµã
-	IX_Node *startPageControl=(IX_Node *)(pageStart->pFrame->page.pData+sizeof(IX_FileHeader));  //»ñµÃ¿ªÊ¼Ò³µÄË÷Òý¼ÇÂ¼ÐÅÏ¢
+	int startPageNumber=FindNode(indexHandle,value);  //æ‰¾åˆ°æœç´¢å¼€å§‹çš„ç´¢å¼•å€¼æ‰€åœ¨èŠ‚ç‚?
+	GetThisPage(&indexHandle->fileHandle,startPageNumber,indexScan->pfPageHandle);
+	IX_Node *startPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));  //èŽ·å¾—å¼€å§‹é¡µçš„ç´¢å¼•è?°å½•ä¿¡æ¯
 	int indexOffset,rtn;
 	float targetVal,indexVal;
 	for(indexOffset=0;indexOffset<startPageControl->keynum;indexOffset++)
@@ -56,7 +55,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 		}
 		if(rtn==0)
 		{
-			indexScan->pnNext=pageStart->pFrame->page.pageNum;
+			indexScan->pnNext=indexScan->pfPageHandle->pFrame->page.pageNum;
 			indexScan->ridIx=(compOp==EQual||compOp==GEqual)?indexOffset:indexOffset+1;
 			indexScan->pfPageHandle=pageStart;
 			indexScan->currentPageControl=startPageControl;
@@ -68,7 +67,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 				return FAIL;
 			else
 			{
-				indexScan->pnNext=pageStart->pFrame->page.pageNum;
+				indexScan->pnNext=indexScan->pfPageHandle->pFrame->page.pageNum;
 				indexScan->ridIx=indexOffset;
 				indexScan->pfPageHandle=pageStart;
 				indexScan->currentPageControl=startPageControl;
@@ -84,7 +83,7 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 		{
 			indexScan->pnNext=startPageControl->brother;
 			indexScan->ridIx=0;
-			GetThisPage(indexHandle->fileHandle,startPageControl->brother,indexScan->pfPageHandle);
+			GetThisPage(&indexHandle->fileHandle,startPageControl->brother,indexScan->pfPageHandle);
 			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 			return SUCCESS;
 		}
@@ -92,8 +91,8 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 	return SUCCESS;
 }
 
-//¼ì²é±È½Ï²ßÂÔ
-RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid)
+//æ£€æŸ¥æ¯”è¾ƒç­–ç•?
+RC IX_GetNextEntry(IX_IndexScan *indexScan,RID *rid)
 {
 	if(indexScan->ridIx==indexScan->currentPageControl->keynum)
 	{
@@ -102,25 +101,25 @@ RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid)
 		else
 		{
 			indexScan->pnNext=indexScan->currentPageControl->brother;
-			GetThisPage(indexScan->pIXIndexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
+			GetThisPage(&indexScan->pIXIndexHandle->fileHandle,indexScan->pnNext,indexScan->pfPageHandle);
 			indexScan->currentPageControl=(IX_Node *)(indexScan->pfPageHandle->pFrame->page.pData+sizeof(IX_FileHeader));
 			indexScan->ridIx=0;
 		}
 	}
 	if(indexScan->compOp!=NO_OP)
 	{
-		switch (indexScan->pIXIndexHandle->fileHeader->attrType)
+		switch (indexScan->pIXIndexHandle->fileHeader.attrType)
 		{
 		case chars:
 			if(!CmpString(indexScan->currentPageControl->keys+
-				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID),
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader.keyLength+sizeof(RID),
 				indexScan->value,
 				indexScan->compOp))
 				return FAIL;
 		case ints:
 		case floats:
 			if(!CmpValue(*(float *)(indexScan->currentPageControl->keys+
-				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader->keyLength+sizeof(RID)),
+				indexScan->ridIx*indexScan->pIXIndexHandle->fileHeader.keyLength+sizeof(RID)),
 				*(float *)indexScan->value,
 				indexScan->compOp))
 				return FAIL;
@@ -141,7 +140,6 @@ RC CloseIndexScan(IX_IndexScan *indexScan){
 	return SUCCESS;
 }
 
-//ctmdÀÏ×Ó²»ÏëÐ´ÁË
 RC GetIndexTree(char *fileName, Tree *index)
 {
 
@@ -152,8 +150,10 @@ RC GetIndexTree(char *fileName, Tree *index)
 //×¢Òâ´¦Àí·µ»ØÖµµÄÎÊÌâ
 RC InsertEntry(IX_IndexHandle *indexHandle,void *pData,const RID *rid)
 {
-	PF_PageHandle *pageInsert = FindNode(indexHandle,pData); //¸ù¾ÝÊäÈëµÄÊý¾ÝÕÒµ½¼´½«²Ù×÷µÄ½Úµã
-	//µ÷ÓÃµÝ¹éº¯Êý
+	int pageInsertNumber=FindNode(indexHandle,pData); //æ ¹æ®è¾“å…¥çš„æ•°æ?æ‰¾åˆ°å³å°†æ“ä½œçš„èŠ‚ç‚?
+	PF_PageHandle *pageInsert=new PF_PageHandle;
+	GetThisPage(&indexHandle->fileHandle,pageInsertNumber,pageInsert);
+	//è°ƒç”¨é€’å½’å‡½æ•°
 	RecursionInsert(indexHandle,pData,rid,pageInsert);
 	return FAIL;
 }
@@ -168,13 +168,13 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 		return;  //Ë÷ÒýÏîÊýÃ»ÓÐ³¬£¬½Ô´ó»¶Ï²
 	else
 	{
-		//Ë÷ÒýÏîÊý´ïµ½ÁË×î´ó£¬½Úµã·ÖÁÑ
-		int splitOffset=int(pageControl->keynum/2+0.5);          //½ÚµãË÷Òý¼ÇÂ¼È¡°ë£¬ÏòÉÏÈ¡Õû
-		PF_PageHandle *brotherNode;                              //Îªµ±Ç°½Úµã·ÖÅäÒ»¸öÐÖµÜ½Úµã
-		AllocatePage(indexHandle->fileHandle,brotherNode);
-		pageControl->brother=brotherNode->pFrame->page.pageNum;  //±ê¼ÇÐÖµÜ½ÚµãµÄÒ³ºÅ
-		IX_Node *broPageControl=(IX_Node *)(brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)); //ÐÖµÜ½ÚµãµÄ¿ØÖÆÐÅÏ¢
-		broPageControl->keys=brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //¼ÆËãÐÖµÜ½ÚµãµÄË÷ÒýÇøÓëÊý¾ÝÇø
+		//ç´¢å¼•é¡¹æ•°è¾¾åˆ°äº†æœ€å¤§ï¼ŒèŠ‚ç‚¹åˆ†è??
+		int splitOffset=int(pageControl->keynum/2+1);          //èŠ‚ç‚¹ç´¢å¼•è®°å½•å–åŠï¼Œå‘ä¸Šå–æ•?
+		PF_PageHandle *brotherNode=new PF_PageHandle;                              //ä¸ºå½“å‰èŠ‚ç‚¹åˆ†é…ä¸€ä¸?å…„å¼ŸèŠ‚ç‚¹
+		AllocatePage(&indexHandle->fileHandle,brotherNode);
+		pageControl->brother=brotherNode->pFrame->page.pageNum;  //æ ‡è?°å…„å¼ŸèŠ‚ç‚¹çš„é¡µå·
+		IX_Node *broPageControl=(IX_Node *)(brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)); //å…„å¼ŸèŠ‚ç‚¹çš„æŽ§åˆ¶ä¿¡æ?
+		broPageControl->keys=brotherNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //è®¡ç®—å…„å¼ŸèŠ‚ç‚¹çš„ç´¢å¼•åŒºä¸Žæ•°æ?åŒ?
 		broPageControl->rids=(RID *)(broPageControl->keys+
 			(indexHandle->fileHeader.order+1)*indexHandle->fileHeader.keyLength);
 		//ÏÈÏòÐÖµÜ½Úµã°áÒÆ·ÖÁÑ³öÈ¥µÄË÷ÒýÊý¾Ý
@@ -185,34 +185,40 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 		pageControl->keynum=splitOffset;         //ÉèÖÃµ±Ç°½ÚµãµÄÊµ¼ÊË÷ÒýÊý
 		memcpy(broPageControl->rids,
 			pageControl->rids+splitOffset,
-			broPageControl->keynum*sizeof(RID)); //°áÒÆÖ¸ÕëÇø£¨ÖµÇø£©Êý¾Ý
-		broPageControl->is_leaf=pageControl->is_leaf;  //±ê¼ÇÐÖµÜ½ÚµãÒ¶×Ó½ÚµãÊôÐÔ
-		broPageControl->brother=-1;    //ÐÖµÜ½ÚµãÔÝÊ±Ã»ÓÐÓÒÐÖµÜ½Úµã
-		//¼ì²éÊÇ·ñÊÇµ±Ç°µÄ¸ù½ÚµãÔÚ·ÖÁÑ£¨ÊÇ·ñÓÐ¸¸½áµã£©
-		if(pageControl->parent==0)    //µ±Ç°½ÚµãÊÇ¸ù½Úµã
+			broPageControl->keynum*sizeof(RID)); //æ?ç§»æŒ‡é’ˆåŒºï¼ˆå€¼åŒºï¼‰æ•°æ?
+		broPageControl->is_leaf=pageControl->is_leaf;  //æ ‡è?°å…„å¼ŸèŠ‚ç‚¹å¶å­èŠ‚ç‚¹å±žæ€?
+		broPageControl->brother=-1;    //å…„å¼ŸèŠ‚ç‚¹æš‚æ—¶æ²¡æœ‰å³å…„å¼ŸèŠ‚ç‚?
+		MarkDirty(brotherNode);
+		UnpinPage(brotherNode);
+		free(brotherNode);
+		//æ£€æŸ¥æ˜¯å¦æ˜¯å½“å‰çš„æ ¹èŠ‚ç‚¹åœ¨åˆ†è£‚ï¼ˆæ˜?å¦æœ‰çˆ¶ç»“ç‚¹ï¼‰
+		if(pageControl->parent==0)    //å½“å‰èŠ‚ç‚¹æ˜?æ ¹èŠ‚ç‚?
 		{
-			PF_PageHandle *parentNode;
-			AllocatePage(indexHandle->fileHandle,parentNode);
-			IX_Node *parentPageControl=(IX_Node *)(parentNode->pFrame->page.pData+sizeof(IX_FileHeader));;  //¸¸½áµã¿ØÖÆÐÅÏ¢
-			//³õÊ¼»¯¸¸½áµãÐÅÏ¢
-			parentPageControl->keynum=2; //Ö»ÓÐÁ½¸öË÷ÒýÏîÄ¿
+			PF_PageHandle *parentNode=new PF_PageHandle;
+			AllocatePage(&indexHandle->fileHandle,parentNode);
+			IX_Node *parentPageControl=(IX_Node *)(parentNode->pFrame->page.pData+sizeof(IX_FileHeader));;  //çˆ¶ç»“ç‚¹æŽ§åˆ¶ä¿¡æ?
+			//åˆå?‹åŒ–çˆ¶ç»“ç‚¹ä¿¡æ?
+			parentPageControl->keynum=2; //å?æœ‰ä¸¤ä¸?ç´¢å¼•é¡¹ç›®
 			parentPageControl->is_leaf=0;
 			parentPageControl->parent=-1;
 			parentPageControl->brother=-1;
 			parentPageControl->keys=parentNode->pFrame->page.pData+sizeof(IX_FileHeader)+sizeof(IX_Node); //¼ÆËã¸¸½ÚµãµÄË÷ÒýÇøÓëÊý¾ÝÇø
 			parentPageControl->rids=(RID *)(parentPageControl->keys+
-				(indexHandle->fileHeader.order+1)*indexHandle->fileHeader->keyLength);
-			indexHandle->fileHeader.rootPage=parentNode->pFrame->page.pageNum;  //ÉèÖÃµ±Ç°µÄ¸ù½ÚµãÎ»ÖÃ
-			memcpy(parentPageControl->keys,pageControl->keys,indexHandle->fileHeader.keyLength);  //µ±Ç°½ÚµãµÄµÚÒ»¸öË÷ÒýÖµ
+				(indexHandle->fileHeader.order+1)*indexHandle->fileHeader.keyLength);
+			indexHandle->fileHeader.rootPage=parentNode->pFrame->page.pageNum;  //è®¾ç½®å½“å‰çš„æ ¹èŠ‚ç‚¹ä½ç½®
+			memcpy(parentPageControl->keys,pageControl->keys,indexHandle->fileHeader.keyLength);  //å½“å‰èŠ‚ç‚¹çš„ç??ä¸€ä¸?ç´¢å¼•å€?
 			parentPageControl->rids->bValid=true;
 			parentPageControl->rids->pageNum=pageInsert->pFrame->page.pageNum;  //Ò»¸öÖ¸ÕëÖ¸Ïòµ±Ç°½Úµã
 			parentPageControl->rids->slotNum=0;   //ÄÚ½ÚµãµÄÖ¸ÕëµÄ²ÛÖµ¶¼Îª0
 			memcpy(parentPageControl->keys,broPageControl->keys,indexHandle->fileHeader.keyLength);  //ÐÖµÜ½ÚµãµÄµÚÒ»¸öË÷ÒýÖµ
 			parentPageControl->rids->bValid=true;
-			parentPageControl->rids->pageNum=brotherNode->pFrame->page.pageNum;  //Ò»¸öÖ¸ÕëÖ¸ÏòÐÖµÜ½Úµã
-			parentPageControl->rids->slotNum=0;   //ÄÚ½ÚµãµÄÖ¸ÕëµÄ²ÛÖµ¶¼Îª0
-			pageControl->parent=parentNode->pFrame->page.pageNum;  //µ±Ç°½ÚµãÖ¸Ïò¸¸½áµã
-			broPageControl->parent=parentNode->pFrame->page.pageNum;  //ÐÖµÜ½ÚµãÖ¸Ïò¸¸½áµã
+			parentPageControl->rids->pageNum=brotherNode->pFrame->page.pageNum;  //ä¸€ä¸?æŒ‡é’ˆæŒ‡å‘å…„å¼ŸèŠ‚ç‚¹
+			parentPageControl->rids->slotNum=0;   //å†…èŠ‚ç‚¹çš„æŒ‡é’ˆçš„æ§½å€¼éƒ½ä¸?0
+			pageControl->parent=parentNode->pFrame->page.pageNum;  //å½“å‰èŠ‚ç‚¹æŒ‡å‘çˆ¶ç»“ç‚?
+			broPageControl->parent=parentNode->pFrame->page.pageNum;  //å…„å¼ŸèŠ‚ç‚¹æŒ‡å‘çˆ¶ç»“ç‚?
+			MarkDirty(parentNode);
+			UnpinPage(parentNode);
+			free(parentNode);
 			return;
 		}
 		else
@@ -223,20 +229,17 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 			broPointer->bValid=true;
 			broPointer->pageNum=brotherNode->pFrame->page.pageNum;
 			broPointer->slotNum=0;
-			PF_PageHandle *parentPage;
-			GetThisPage(indexHandle->fileHandle,pageControl->parent,parentPage);
-			if(posInsert!=0)  //Ç°Ãæ²åÈëµÄÊ±ºò²åÔÚÁËµ±Ç°½ÚµãµÄ×î×ó²à£¬ÐèÒª¸üÐÂ¸¸½ÚµãµÄË÷ÒýÖµ
+			PF_PageHandle *parentPage=new PF_PageHandle;
+			GetThisPage(&indexHandle->fileHandle,pageControl->parent,parentPage);
+			if(posInsert!=0)  //å‰é¢æ’å…¥çš„æ—¶å€™æ’åœ¨äº†å½“å‰èŠ‚ç‚¹çš„æœ€å·¦ä¾§ï¼Œéœ€è¦æ›´æ–°çˆ¶èŠ‚ç‚¹çš„ç´¢å¼•å€?
 				memcpy(parentPage->pFrame->page.pData,pageControl->keys,indexHandle->fileHeader.keyLength);
+			MarkDirty(pageInsert);
+			UnpinPage(pageInsert);
 			RecursionInsert(indexHandle,broPageControl->keys,broPointer,parentPage);
 		}
 	}
 }
 
-/*******
-*¾ÍÊ£ÄãÁËÎá×Î!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*/
 RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 {/*    ¡ü
 	   |
@@ -575,15 +578,18 @@ void deleteOrAlterParentNode(PF_PageHandle *parentPageHandle, PF_FileHandle *fil
 RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	if(CreateFile(fileName))
 		return FAIL;  
-	//Èç¹û³É¹¦
-	PF_FileHandle *file=NULL;
+	//å¦‚æžœæˆåŠŸ
+	PF_FileHandle *file=new PF_FileHandle;
 	if(openFile((char *)fileName,file))
 		return FAIL;
-	//ÉêÇëÐÂÒ³ÃæÓÃÓÚ´æ·ÅË÷ÒýÊ×Ò³£¨¸ù½Úµã£©
-	PF_PageHandle *firstPage=NULL;
+	//ç”³è?·æ–°é¡µé¢ç”¨äºŽå­˜æ”¾ç´¢å¼•é¦–é¡µï¼ˆæ ¹èŠ‚ç‚¹ï¼?
+	PF_PageHandle *firstPage=new PF_PageHandle;
 	if(AllocatePage(file,firstPage))
+	{
+		free(firstPage);
 		return FAIL;
-	// Ò³ÃæÉÏÌí¼Ó<Ë÷Òý¿ØÖÆÐÅÏ¢>£¬ÆäÖÐrootPageºÍfirst_leafÄ¬ÈÏÉèÎª1Ò³£¬ÓÐÎóºóÆÚ¸Ä
+	}
+	// é¡µé¢ä¸Šæ·»åŠ?<ç´¢å¼•æŽ§åˆ¶ä¿¡æ¯>ï¼Œå…¶ä¸­rootPageå’Œfirst_leafé»˜è?¤è?¾ä¸º1é¡µï¼Œæœ‰è??åŽæœŸæ”?
 	IX_FileHeader *fileHeader = (IX_FileHeader *)firstPage->pFrame->page.pData;
 	fileHeader->attrLength = attrLength;
 	fileHeader->attrType = attrType;
@@ -609,7 +615,10 @@ RC CreateIndex(const char * fileName,AttrType attrType,int attrLength){
 	bTree->order = (PF_PAGE_SIZE-sizeof(IX_FileHeader))/(2*sizeof(RID)+attrLength);
 	//bTree->root = null;   ¸ù½áµã´ÓÄÄ¿ªÊ¼
 	*/
-	//¹Ø±Õ´ò¿ªµÄÎÄ¼þ
+	//å…³é—­æ‰“å¼€çš„æ–‡ä»?
+	MarkDirty(firstPage);
+	UnpinPage(firstPage);
+	free(firstPage);
 	CloseFile(file);
 	return SUCCESS;
 }
@@ -618,14 +627,14 @@ RC OpenIndex(const char *fileName,IX_IndexHandle *indexHandle) {
 	//ÅÐ¶ÏÎÄ¼þÊÇ·ñÒÑ´ò¿ª
 	if(indexHandle->bOpen)  //ÈôÊ¹ÓÃµÄ¾ä±úÒÑ¾­¶ÔÓ¦Ò»¸ö´ò¿ªµÄÎÄ¼þ
 		return RM_FHOPENNED;
-	if(openFile((char*)fileName,indexHandle->fileHandle))
+	if(openFile((char*)fileName,&indexHandle->fileHandle))
 		return FAIL;
 	indexHandle->bOpen=TRUE;
 	//»ñÈ¡¼ÇÂ¼¹ÜÀí»ù±¾ÐÅÏ¢
 	PF_PageHandle *ctrPage=NULL;
-	if(GetThisPage(indexHandle->fileHandle,1,ctrPage))
+	if(GetThisPage(&indexHandle->fileHandle,1,ctrPage))
 	{
-		CloseFile(indexHandle->fileHandle);
+		CloseFile(&indexHandle->fileHandle);
 		return FAIL;
 	}
 	indexHandle->fileHeader=(IX_FileHeader *)ctrPage->pFrame->page.pData;
@@ -636,7 +645,7 @@ RC CloseIndex(IX_IndexHandle *indexHandle){
 	//ÈôÒÑ¾­¹Ø±Õ
 	if(!indexHandle->bOpen)
 		return IX_ISCLOSED;
-	if(CloseFile(indexHandle->fileHandle))
+	if(CloseFile(&indexHandle->fileHandle))	// ç”¨filenameå…³é—­æ–‡ä»¶? å…³é—­æ–‡ä»¶æ²¡æœ‰å¯¹åº”çš„æ•°æ?ç»“æž„
 		return FAIL;
 	indexHandle->bOpen=FALSE;
 	return SUCCESS;
@@ -802,14 +811,14 @@ int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLen
 
 }
 
-PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
+int FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 {
 	//¶¨Î»¸ù½Úµã
 	int rootPage=indexHandle->fileHeader.rootPage;
-	PF_PageHandle *currentPage;
+	PF_PageHandle *currentPage=new PF_PageHandle;
 	int rtn;
 	float targetVal,indexVal;
-	GetThisPage(indexHandle->fileHandle,rootPage,currentPage);
+	GetThisPage(&indexHandle->fileHandle,rootPage,currentPage);
 	IX_Node *nodeInfo;
 	nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
 	int isLeaf=nodeInfo->is_leaf;
@@ -850,11 +859,13 @@ PF_PageHandle *FindNode(IX_IndexHandle *indexHandle,void *targetKey)
 				}
 			}
 			RID child=(RID)nodeInfo->rids[offset==0?0:offset-1];
-			GetThisPage(indexHandle->fileHandle,child.pageNum,currentPage);
+			UnpinPage(currentPage);
+			GetThisPage(&indexHandle->fileHandle,child.pageNum,currentPage);
 			nodeInfo=(IX_Node *)(currentPage->pFrame->page.pData[sizeof(IX_FileHeader)]);
 			int isLeaf=nodeInfo->is_leaf;
 			break;
 		}
 	}
-	return currentPage;
+	UnpinPage(currentPage);
+	return currentPage->pFrame->page.pageNum;
 }
