@@ -22,3 +22,4 @@ if(rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1)==-1)
 rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn+1,1);
 因为rmFileScan->pn为pageNum类型
 6.使用相关句柄前记得将布尔值成员置为false
+7.注意closescan里面已经关闭了搜索的文件句柄
