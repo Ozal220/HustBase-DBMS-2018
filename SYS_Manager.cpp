@@ -88,50 +88,50 @@ RC execute(char * sql){
 	RC rc;
 	sql_str = get_sqlstr();//初始化
   	rc = parse(sql, sql_str);//只有两种返回结果SUCCESS和SQL_SYNTAX
-	
+	SelResult *res;
 	if (rc == SUCCESS)
 	{
 		int i = 0;
 		switch (sql_str->flag)
 		{
-			//case 1:
+			case 1:
 			////判断SQL语句为select语句
-
-			//break;
+			Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
+			break;
 
 			case 2:
 			//判断SQL语句为insert语句
-				//RC Insert(char *relName,int nValues,Value * values);
+				Insert(sql_str->sstr.ins.relName,sql_str->sstr.ins.nValues,sql_str->sstr.ins.values);
 			break;
 
 			case 3:	
 			//判断SQL语句为update语句
-				//RC Update(char *relName,char *attrName,Value *value,int nConditions,Condition *conditions);
+				Update(sql_str->sstr.upd.relName,sql_str->sstr.upd.attrName,&sql_str->sstr.upd.value,sql_str->sstr.upd.nConditions,sql_str->sstr.upd.conditions);
 			break;
 
 			case 4:					
 			//判断SQL语句为delete语句
-				//RC Delete(char *relName,int nConditions,Condition *conditions);
+				Delete(sql_str->sstr.del.relName,sql_str->sstr.del.nConditions,sql_str->sstr.del.conditions);
 			break;
 
 			case 5:
 			//判断SQL语句为createTable语句
-				//RC CreateTable(char *relName,int attrCount,AttrInfo *attributes);
+				CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
 			break;
 
 			case 6:	
 			//判断SQL语句为dropTable语句
-				//RC DropTable(char *relName);
+				DropTable(sql_str->sstr.drt.relName);
 			break;
 
 			case 7:
 			//判断SQL语句为createIndex语句
-				//RC CreateIndex(char *indexName,char *relName,char *attrName);
+				CreateIndex(sql_str->sstr.crei.indexName,sql_str->sstr.crei.relName,sql_str->sstr.crei.attrName);
 			break;
 	
 			case 8:	
 			//判断SQL语句为dropIndex语句
-				//RC DropIndex(char *indexName);
+				DropIndex(sql_str->sstr.dri.indexName);
 			break;
 			
 			case 9:
@@ -517,7 +517,40 @@ RC Insert(char *relName,int nValues,Value *values){
 	rid = (RID*)malloc(sizeof(RID));
 	rid->bValid = false;
 	InsertRec(rm_data, value, rid);
-
+	//关闭系统列文件扫描
+	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+	//打开系统列文件扫描
+	FileScan.bOpen = false;
+	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+		AfxMessageBox("系统列文件扫描失败");
+		return SQL_SYNTAX;
+	}
+	//扫描系统列文件，如果该属性上存在索引，则插入索引项
+	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+		if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+			for (int i = 0; i < attrcount; i++){
+				if((reccol.pData+42+3*sizeof(int))=="1"){//ix_flag为1，该属性上存在索引，需插入新的索引项
+					IX_IndexHandle *rm_index;
+					memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+					rm_index = (IX_IndexHandle *)malloc(sizeof(IX_IndexHandle));//打开索引文件
+	                rm_index->bOpen = false;
+	                if(OpenIndex(index, rm_index)!=SUCCESS){
+		               AfxMessageBox("索引文件打开失败");
+		               return SQL_SYNTAX;
+	                }
+					char*length,*offset;
+					memcpy(length,reccol.pData+42+sizeof(int),sizeof(int));
+		            memcpy(offset,reccol.pData+42+2*sizeof(int),sizeof(int));
+					char *data = (char *)malloc((int)length);
+		            memcpy(data,value+(int)offset,(int)length);
+		            InsertEntry(rm_index,data,&(reccol.rid));
+					if(CloseIndex(rm_index)!=SUCCESS)return SQL_SYNTAX;
+					free(rm_index);
+				}
+			}
+			break;
+		}
+	}
 	free(value);
 	free(rid);
 	free(Column);
@@ -785,6 +818,38 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 
 		if (torf == 1){
 			DeleteRec(rm_data, &(recdata.rid));
+			//打开系统列文件扫描
+			FileScan.bOpen = false;
+			if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
+				AfxMessageBox("系统列文件扫描失败");
+				return SQL_SYNTAX;
+			}
+			//扫描系统列文件，如果该属性上存在索引，则删除索引项
+			while (GetNextRec(&FileScan, &reccol) == SUCCESS){
+				if (strcmp(relName, reccol.pData) == 0){//找到表名为relName的第一个记录，依次读取attrcount个记录
+					for (int i = 0; i < attrcount; i++){
+						if((reccol.pData+42+3*sizeof(int))=="1"){//ix_flag为1，该属性上存在索引，需删除原有的索引项
+							IX_IndexHandle *rm_index;
+							memcpy(index,reccol.pData+43+2*sizeof(int)+sizeof(AttrType),21);
+							rm_index = (IX_IndexHandle *)malloc(sizeof(IX_IndexHandle));//打开索引文件
+			                rm_index->bOpen = false;
+			                if(OpenIndex(index, rm_index)!=SUCCESS){
+				               AfxMessageBox("索引文件打开失败");
+				               return SQL_SYNTAX;
+			                }
+							char*length,*offset;
+							memcpy(length,reccol.pData+42+sizeof(int),sizeof(int));
+				            memcpy(offset,reccol.pData+42+2*sizeof(int),sizeof(int));
+							char *data = (char *)malloc((int)length);
+							memcpy(data,recdata.pData+(int)offset,(int)length);
+				            DeleteEntry(rm_index,data,&(recdata.rid));
+							if(CloseIndex(rm_index)!=SUCCESS)return SQL_SYNTAX;//关闭索引文件
+							free(rm_index);
+						}
+					}
+					break;
+				}
+			}
 		}	
 	}
 	free(Column);
