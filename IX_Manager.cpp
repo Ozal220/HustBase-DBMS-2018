@@ -141,7 +141,6 @@ RC CloseIndexScan(IX_IndexScan *indexScan){
 	return SUCCESS;
 }
 
-//ctmd老子不想写了
 RC GetIndexTree(char *fileName, Tree *index)
 {
 
@@ -232,11 +231,7 @@ void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_P
 	}
 }
 
-/*******
-*就剩你了吾孜!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-*/
+
 RC DeleteEntry(IX_IndexHandle *indexHandle,void *pData,const RID * rid)
 {/*    ↑
 	   |
