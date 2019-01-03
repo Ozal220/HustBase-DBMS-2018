@@ -4,7 +4,9 @@
 #include "QU_Manager.h"
 #include <iostream>
 #include <fstream>
-
+#include<vector>
+//创建一个vector用来保存句柄*filehandle
+std::vector<RM_FileHandle *> vec;
 struct table{
 		char tablename[21];//表名
 		int attrcount;//属性数量
@@ -140,6 +142,7 @@ RC execute(char * sql){
 		
 			case 10: 
 			//判断为exit语句，可以由此进行退出操作
+				AfxGetMainWnd()->SendMessage(WM_CLOSE);
 			break;		
 		}
 	}else{
@@ -177,11 +180,17 @@ RC DropDB(char *dbname){
 }
 
 RC OpenDB(char *dbname){
-	return SUCCESS;
+	if(SetCurrentDirectory(dbname))return SUCCESS;//设置指定路径为工作路径
+        else return SQL_SYNTAX;
 }
 
 
 RC CloseDB(){	
+	for(std::vector<RM_FileHandle *>::size_type i = 0; i < vec.size(); i++){//遍历vector中的句柄关闭每一个打开的记录文件
+		if(vec[i] != NULL)
+			RM_CloseFile(vec[i]);
+	}
+	vec.clear();
 	return SUCCESS;
 }
 
