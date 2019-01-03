@@ -20,34 +20,38 @@ struct column{
 		char ix_flag;//索引是否存在
 		char indexname[21];//索引名
 }col;
-void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
+void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。
 	std::string s_sql = sql;
+	RC rc;
 	if(s_sql.find("select") == 0){//是查询语句则执行以下，否则跳过
 		SelResult res;
 		Init_Result(&res);
-		//rc = Query(sql,&res);
-		//将查询结果处理一下，整理成下面这种形式
-		//调用editArea->ShowSelResult(col_num,row_num,fields,rows);
-		int col_num = 5;//列
-		int row_num = 3;//行
-		char ** fields = new char *[5];//消息不超过5行
+		rc = Query(sql,&res);
+		if(rc!=SUCCESS)return;
+		int col_num = res.col_num;//列
+		int row_num = 0;//行
+		SelResult *tmp=&res;
+		while(tmp){//所有节点的记录数之和
+			row_num+=tmp->row_num;
+			tmp=tmp->next_res;
+		}
+		char ** fields = new char *[20];//各字段名称
 		for(int i = 0;i<col_num;i++){
 			fields[i] = new char[20];
-			memset(fields[i],0,20);
-			fields[i][0] = 'f';
-			fields[i][1] = i+'0';
+			memset(fields[i],'\0',20);
+			memcpy(fields[i],res.fields[i],20);
 		}
-		char *** rows = new char**[row_num];
+		tmp=&res;
+		char *** rows = new char**[row_num];//结果集
 		for(int i = 0;i<row_num;i++){
-			rows[i] = new char*[col_num];
-			for(int j = 0;j<col_num;j++){
-				rows[i][j] = new char[20];
-				memset(rows[i][j],0,20);
-				rows[i][j][0] = 'r';
-				rows[i][j][1] = i + '0';
-				rows[i][j][2] = '+';
-				rows[i][j][3] = j + '0';
+			rows[i] = new char*[col_num];//存放一条记录
+			for (int j = 0; j <col_num; j++)
+			{
+				rows[i][j] = new char[20];//一条记录的一个字段
+				memset(rows[i][j], '\0', 20);
+				memcpy(rows[i][j],tmp->res[i][j],20);
 			}
+			if (i==99)tmp=tmp->next_res;//每个链表节点最多记录100条记录
 		}
 		editArea->ShowSelResult(col_num,row_num,fields,rows);
 		for(int i = 0;i<5;i++){
