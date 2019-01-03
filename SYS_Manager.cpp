@@ -54,7 +54,7 @@ void ExecuteAndMessage(char * sql,CEditArea* editArea){//¸ù¾ÝÖ´ÐÐµÄÓï¾äÀàÐÍÔÚ½çÃ
 			if (i==99)tmp=tmp->next_res;//Ã¿¸öÁ´±í½Úµã×î¶à¼ÇÂ¼100Ìõ¼ÇÂ¼
 		}
 		editArea->ShowSelResult(col_num,row_num,fields,rows);
-		for(int i = 0;i<5;i++){
+		for(int i = 0;i<20;i++){
 			delete[] fields[i];
 		}
 		delete[] fields;
