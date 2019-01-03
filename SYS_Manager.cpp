@@ -97,7 +97,7 @@ RC execute(char * sql){
 		{
 			case 1:
 			////判断SQL语句为select语句
-			Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
+			//Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
 			break;
 
 			case 2:
@@ -117,12 +117,12 @@ RC execute(char * sql){
 
 			case 5:
 			//判断SQL语句为createTable语句
-				CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
+				return CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
 			break;
 
 			case 6:	
 			//判断SQL语句为dropTable语句
-				DropTable(sql_str->sstr.drt.relName);
+				return DropTable(sql_str->sstr.drt.relName);
 			break;
 
 			case 7:
@@ -138,7 +138,7 @@ RC execute(char * sql){
 			case 9:
 			//判断为help语句，可以给出帮助提示
 			break;
-		
+
 			case 10: 
 			//判断为exit语句，可以由此进行退出操作
 			break;		
@@ -332,9 +332,10 @@ RC DropTable(char *relName){
 		}
 	}
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
-	if (RM_CloseFile(rm_table)!=SUCCESS)return SQL_SYNTAX;//关闭文件句柄
+	//close scan 已经关闭了文件句柄
+	//if (RM_CloseFile(rm_table)!=SUCCESS)return SQL_SYNTAX;//关闭文件句柄
 	free(rm_table);
-	if (RM_CloseFile(rm_column)!=SUCCESS)return SQL_SYNTAX;
+	//if (RM_CloseFile(rm_column)!=SUCCESS)return SQL_SYNTAX;
 	free(rm_column);
 	return SUCCESS;
 }

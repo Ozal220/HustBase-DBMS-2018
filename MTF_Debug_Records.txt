@@ -23,3 +23,13 @@ rmFileScan->pn=rmFileScan->pRMFileHandle->pageCtlBitmap->firstBit(rmFileScan->pn
 因为rmFileScan->pn为pageNum类型
 6.使用相关句柄前记得将布尔值成员置为false
 7.注意closescan里面已经关闭了搜索的文件句柄
+
+1/2 sys_manager
+1.strcat(dbpath,strcat("\\",dbname)) dbpath是常量空间不可修改。
+2.CreateDirectory返回值的问题
+3.execute里的case没有返回
+4.closescan后再closefile：closescan已经关闭文件句柄。
+
+
+
+
