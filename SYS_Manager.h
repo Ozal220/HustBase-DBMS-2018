@@ -6,7 +6,7 @@
 #include "RM_Manager.h"
 #include "str.h"
 
-void ExecuteAndMessage(char * ,CEditArea*);
+void ExecuteAndMessage(char * ,CEditArea*,CHustBaseDoc *);
 bool CanButtonClick();
 
 RC CreateDB(char *dbpath,char *dbname);
@@ -14,7 +14,7 @@ RC DropDB(char *dbname);
 RC OpenDB(char *dbname);
 RC CloseDB();
 
-RC execute(char * sql);
+RC execute(char * sql,CHustBaseDoc *pDoc);
 
 RC CreateTable(char *relName,int attrCount,AttrInfo *attributes);
 RC DropTable(char *relName);
