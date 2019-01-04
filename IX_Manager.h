@@ -76,7 +76,6 @@ RC GetIndexTree(char *fileName, Tree *index);
 int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, AttrType type, int attrLength);
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
 
-//int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
 int FindNode(IX_IndexHandle *indexHandle,void *targetKey);
 //用于节点键值对排序中的插入移位
 int insertKeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, int attrLength);
