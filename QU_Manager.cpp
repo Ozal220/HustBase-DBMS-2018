@@ -5,17 +5,17 @@
 #include <iostream>
 #include <fstream>
 struct table{
-		char tablename[21];//±íÃû
-		int attrcount;//ÊôÐÔÊýÁ¿
+		char tablename[21];//ï¿½ï¿½ï¿½ï¿½
+		int attrcount;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 }tab;
 struct column{
-		char tablename[21];//±íÃû
-		char attrname[21];//ÊôÐÔÃû
-		AttrType attrtype;//ÊôÐÔÀàÐÍ
-		int attrlength;//ÊôÐÔ³¤¶È
-		int attroffset;//ÊôÐÔÆ«ÒÆµØÖ·
-		char ix_flag;//Ë÷ÒýÊÇ·ñ´æÔÚ
-		char indexname[21];//Ë÷ÒýÃû
+		char tablename[21];//ï¿½ï¿½ï¿½ï¿½
+		char attrname[21];//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		AttrType attrtype;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		int attrlength;//ï¿½ï¿½ï¿½Ô³ï¿½ï¿½ï¿½
+		int attroffset;//ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æµï¿½Ö·
+		char ix_flag;//ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½
+		char indexname[21];//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 }col;
 void Init_Result(SelResult * res){
 	res->next_res = NULL;
@@ -37,26 +37,26 @@ RC Select(int nSelAttrs,RelAttr *selAttrs,int nRelations,char **relations,int nC
 	RM_FileHandle *rm_table,*rm_column,*rm_data;
 	RM_FileScan FileScan;
 	RM_Record rectab,reccol;
-	column *Column,*ctmp;//±£´æµÑ¿¨¶û¼¯µÄÊôÐÔµÄÊý×é
-	int allattrcount,allreccount=1;//»ñÈ¡ËùÓÐÉæ¼°µ½µÄ±íµÄËùÓÐÊôÐÔµÄ¸öÊý£¬¼´ËùÇóµÑ¿¨¶û¼¯µÄÊôÐÔ¸öÊý;µÑ¿¨¶û¼¯µÄ¼ÇÂ¼×ÜÊý
-	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//´ò¿ªÏµÍ³±íÎÄ¼þ
+	column *Column,*ctmp;//ï¿½ï¿½ï¿½ï¿½Ñ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½ï¿½ï¿½ï¿½
+	int allattrcount,allreccount=1;//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½æ¼°ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÔµÄ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½ï¿½;ï¿½Ñ¿ï¿½ï¿½ï¿½Ä¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
+	rm_table = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ä¼ï¿½
 	rm_table->bOpen = false;
 	if(RM_OpenFile("SYSTABLES", rm_table)!= SUCCESS)return SQL_SYNTAX;
-	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//´ò¿ªÏµÍ³ÁÐÎÄ¼þ
+	rm_column = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));//ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ä¼ï¿½
 	rm_column->bOpen = false;
 	if (RM_OpenFile("SYSCOLUMNS", rm_column)!= SUCCESS)return SQL_SYNTAX;
-	rm_data=(RM_FileHandle *)malloc(nRelations*sizeof(RM_FileHandle));//´ò¿ªnRelations¸ö¼ÇÂ¼ÎÄ¼þ
+	rm_data=(RM_FileHandle *)malloc(nRelations*sizeof(RM_FileHandle));//ï¿½ï¿½nRelationsï¿½ï¿½ï¿½Â¼ï¿½Ä¼ï¿½
 	for(int i=0;i<nRelations;++i){
 		(rm_data+i)->bOpen=false;
 		if (RM_OpenFile(relations[i], rm_data)!= SUCCESS)return SQL_SYNTAX;
 	}
-	int *attrcount=(int*)malloc(nRelations*sizeof(int));//ÓÃÓÚ´æ´¢Ã¿¸ö±íµÄÊôÐÔ¸öÊý
-	int *reccount=(int*)malloc(nRelations*sizeof(int));//ÓÃÓÚ´æ´¢Ã¿¸ö±íµÄ¼ÇÂ¼¸öÊý
+	int *attrcount=(int*)malloc(nRelations*sizeof(int));//ï¿½ï¿½ï¿½Ú´æ´¢Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½ï¿½
+	int *reccount=(int*)malloc(nRelations*sizeof(int));//ï¿½ï¿½ï¿½Ú´æ´¢Ã¿ï¿½ï¿½ï¿½Ä¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
 	for (int i=0;i<nRelations;++i){
 		FileScan.bOpen = false;
 		if (OpenScan(&FileScan, rm_table, 0, NULL)!= SUCCESS)return SQL_SYNTAX;
 		while (GetNextRec(&FileScan, &rectab) == SUCCESS){
-			if (strcmp(relations[i], rectab.pData) == 0){//Ãû×ÖÆ¥Åä£¬¶ÁÈ¡ÊôÐÔ¸öÊý
+			if (strcmp(relations[i], rectab.pData) == 0){//ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ä£¬ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½ï¿½
 				memcpy(attrcount+i, rectab.pData+21, sizeof(int));
 				allattrcount+=*(attrcount+i);
 				break;
@@ -71,15 +71,15 @@ RC Select(int nSelAttrs,RelAttr *selAttrs,int nRelations,char **relations,int nC
 		allreccount*=reccount[i];
 		if (CloseScan(&FileScan)!= SUCCESS)return SQL_SYNTAX;
 	}
-	char ***results=new char**[allreccount];//±£´æµÑ¿¨¶û¼¯µÄ¼ÇÂ¼Êý×é
-	Column=(column*)malloc(allattrcount*sizeof(column));//µÑ¿¨¶û¼¯µÄ¸÷ÏîÊôÐÔ
+	char ***results=new char**[allreccount];//ï¿½ï¿½ï¿½ï¿½Ñ¿ï¿½ï¿½ï¿½Ä¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
+	Column=(column*)malloc(allattrcount*sizeof(column));//ï¿½Ñ¿ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	ctmp=Column;
 	for(int i=0;i<nRelations;++i){
 		FileScan.bOpen = false;
-	    if(OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS)return SQL_SYNTAX;//´ò¿ªÏµÍ³ÁÐÎÄ¼þÉ¨Ãè
+	    if(OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS)return SQL_SYNTAX;//ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ä¼ï¿½É¨ï¿½ï¿½
 		while(GetNextRec(&FileScan, &reccol) == SUCCESS){
-			if(strcmp(relations[i],reccol.pData)==0){//±íÃûÏà·û
-				for(int j=0;j<attrcount[i];++j,++ctmp){//ÒÀ´Î¶ÁÈ¡¸Ã±íµÄËùÓÐÊôÐÔ¼ÇÂ¼µ½µÑ¿¨¶û¼¯µÄÊôÐÔÖÐ
+			if(strcmp(relations[i],reccol.pData)==0){//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				for(int j=0;j<attrcount[i];++j,++ctmp){//ï¿½ï¿½Î¶ï¿½È¡ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½Â¼ï¿½ï¿½ï¿½Ñ¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 					memcpy(ctmp->tablename,reccol.pData,21);
 					memcpy(ctmp->attrname,reccol.pData+21,21);
 					memcpy(&(ctmp->attrtype),reccol.pData+42,sizeof(AttrType));
@@ -94,14 +94,11 @@ RC Select(int nSelAttrs,RelAttr *selAttrs,int nRelations,char **relations,int nC
 		if(CloseScan(&FileScan)!= SUCCESS)return SQL_SYNTAX;
 	}
 
-	return SUCCESS;
-}
-
 RC Query(char *sql,SelResult *res){
-	sqlstr *sql_str = NULL;//ÉùÃ÷
+	sqlstr *sql_str = NULL;//ï¿½ï¿½ï¿½ï¿½
 	RC rc;
-	sql_str = get_sqlstr();//³õÊ¼»¯
-  	rc = parse(sql, sql_str);//Ö»ÓÐÁ½ÖÖ·µ»Ø½á¹ûSUCCESSºÍSQL_SYNTAX
+	sql_str = get_sqlstr();//ï¿½ï¿½Ê¼ï¿½ï¿½
+  	rc = parse(sql, sql_str);//Ö»ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ø½ï¿½ï¿½SUCCESSï¿½ï¿½SQL_SYNTAX
 	SelResult *res;
 	if(rc==SUCCESS)
 	if(Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,

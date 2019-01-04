@@ -4,56 +4,60 @@
 #include "RM_Manager.h"
 #include "PF_Manager.h"
 #include <cstdlib>
+#include <cmath>
 
-// æ§åˆ¶é¡µå¥æŸ„
+// ¿ØÖÆÒ³¾ä
 typedef struct{
-	int attrLength;			// å»ºç«‹ç´¢å¼•çš„å±æ€§å€¼çš„é•¿åº¦
-	int keyLength;			// B+æ ‘ä¸­å…³é”®å­—çš„é•¿åº¦
-	AttrType attrType;		// å»ºç«‹ç´¢å¼•çš„å±æ€§å€¼çš„ç±»å‹
-	PageNum rootPage;		// B+æ ‘æ ¹ç»“ç‚¹çš„é¡µé¢å·
-	PageNum first_leaf;		// B+æ ‘ç¬¬ä¸€ä¸ªå¶å­èŠ‚ç‚¹çš„é¡µé¢å·
-	int order;				// åºæ•°
+	int attrLength;			// ½¨Á¢Ë÷ÒıµÄÊôĞÔÖµµÄ³¤¶È
+	int keyLength;			// B+Ê÷ÖĞ¹Ø¼ü×ÖµÄ³¤¶È
+	AttrType attrType;		// ½¨Á¢Ë÷ÒıµÄÊôĞÔÖµµÄÀàĞÍ
+	PageNum rootPage;		// B+Ê÷¸ù½áµãµÄÒ³ÃæºÅ
+	PageNum first_leaf;		// B+Ê÷µÚÒ»¸öÒ¶×Ó½ÚµãµÄÒ³Ãæ
+	int order;				// ĞòÊı
 }IX_FileHeader;
 
-// ç´¢å¼•å¥æŸ„
+// Ë÷Òı¾ä±ú
 typedef struct{
-	bool bOpen;					// æ˜¯å¦ä¸ä¸€ä¸ªæ–‡ä»¶å…³è”
-	PF_FileHandle *fileHandle;	// å¯¹åº”çš„é¡µé¢æ–‡ä»¶å¥æŸ„
-	IX_FileHeader *fileHeader;	// å¯¹åº”çš„æ§åˆ¶é¡µå¥æŸ„
+	bool bOpen;					// ÊÇ·ñÓëÒ»¸öÎÄ¼ş¹Ø
+	PF_FileHandle fileHandle;	// ¶ÔÓ¦µÄÒ³ÃæÎÄ¼ş¾ä
+	IX_FileHeader fileHeader;	// ¶ÔÓ¦µÄ¿ØÖÆÒ³¾ä±ú
 }IX_IndexHandle;
 
-
+// 12/28:ĞŞ¸ÄÁËÊı¾İ½á¹¹,Ìí¼ÓÁËparentOrderºÍleftBrother. ½«Ô­À´µÄbrother¸ÄÎªrightBrother
 typedef struct{
-	int is_leaf;		// è¯¥èŠ‚ç‚¹æ˜¯å¦ä¸ºå¶å­èŠ‚ç‚¹
-	int keynum;			// åŒ…å«çš„å…³é”®å­—ä¸ªæ•°
-	PageNum parent;		// çˆ¶èŠ‚ç‚¹é¡µé¢å·
-	PageNum brother;	// å…„å¼Ÿç»“ç‚¹é¡µé¢å·
-	char *keys;			// å…³é”®å­—æ•°ç»„
-	RID *rids;			// em?
+	int is_leaf;		// ¸Ã½ÚµãÊÇ·ñÎªÒ¶×Ó½Úµã
+	int keynum;			// ¸Ã½ÚµãÊµ¼Ê°üº¬µÄ¹Ø¼ü×Ö¸öÊı
+	PageNum parent;		// Ö¸Ïò¸¸½ÚµãËùÔÚµÄÒ³ÃæºÅ
+	int parentOrder;	// ¸¸½ÚµãÔÚËùÔÚÒ³Ãæµ±ÖĞµÄĞòºÅ
+	PageNum brother;	// Ö¸ÏòÓÒĞÖµÜ½ÚµãËùÔÚµÄÒ³ÃæºÅ
+	char *keys;			// Ö¸Ïò¹Ø¼ü×ÖÇøµÄÖ¸Õë
+	RID *rids;			// Ö¸ÏòÖ¸ÕëÇøµÄÖ¸Õë
 }IX_Node;
 
 typedef struct{
-	bool bOpen;		/*æ‰«ææ˜¯å¦æ‰“å¼€ */
-	IX_IndexHandle *pIXIndexHandle;	//æŒ‡å‘ç´¢å¼•æ–‡ä»¶æ“ä½œçš„æŒ‡é’ˆ
-	CompOp compOp;  /* ç”¨äºæ¯”è¾ƒçš„æ“ä½œç¬¦*/
-	char *value;		 /* ä¸å±æ€§è¡Œæ¯”è¾ƒçš„å€¼ */
-    PF_PageHandle pfPageHandles[PF_BUFFER_SIZE]; // å›ºå®šåœ¨ç¼“å†²åŒºé¡µé¢æ‰€å¯¹åº”çš„é¡µé¢æ“ä½œåˆ—è¡¨
-	PageNum pnNext; 	//ä¸‹ä¸€ä¸ªå°†è¦è¢«è¯»å…¥çš„é¡µé¢å·
+	bool bOpen;		/*É¨ÃèÊÇ·ñ´ò¿ª */
+	IX_IndexHandle *pIXIndexHandle;	//Ö¸ÏòË÷ÒıÎÄ¼ş²Ù×÷µÄÖ¸
+	CompOp compOp;  /* ÓÃÓÚ±È½ÏµÄ²Ù×÷·û*/
+	char *value;		 /* ÓëÊôĞÔĞĞ±È½ÏµÄ*/
+    PF_PageHandle *pfPageHandle; // ¹Ì¶¨ÔÚ»º³åÇøÒ³ÃæËù¶ÔÓ¦µÄÒ³Ãæ²Ù×÷ÁĞ
+	PageNum pnNext; 	//ÏÂÒ»¸ö½«Òª±»¶ÁÈëµÄÒ³ÃæºÅ
+	int ridIx;
+	IX_Node *currentPageControl; //Ö¸Ïòµ±Ç°Ò³ÃæµÄË÷Òı¹ÜÀíĞÅÏ¢
 }IX_IndexScan;
 
 typedef struct Tree_Node{
-	int  keyNum;		//èŠ‚ç‚¹ä¸­åŒ…å«çš„å…³é”®å­—ï¼ˆå±æ€§å€¼ï¼‰ä¸ªæ•°
-	char  **keys;		//èŠ‚ç‚¹ä¸­åŒ…å«çš„å…³é”®å­—ï¼ˆå±æ€§å€¼ï¼‰æ•°ç»„
-	Tree_Node  *parent;	//çˆ¶èŠ‚ç‚¹
-	Tree_Node  *sibling;	//å³è¾¹çš„å…„å¼ŸèŠ‚ç‚¹
-	Tree_Node  *firstChild;	//æœ€å·¦è¾¹çš„å­©å­èŠ‚ç‚¹
-}Tree_Node; //èŠ‚ç‚¹æ•°æ®ç»“æ„
+	int  keyNum;		//½ÚµãÖĞ°üº¬µÄ¹Ø¼ü×Ö£¨ÊôĞÔÖµ£©¸öÊı
+	char  **keys;		//½ÚµãÖĞ°üº¬µÄ¹Ø¼ü×Ö£¨ÊôĞÔÖµ£©Êı×é
+	Tree_Node  *parent;	//¸¸½Ú
+	Tree_Node  *sibling;	//ÓÒ±ßµÄĞÖµÜ½Ú
+	Tree_Node  *firstChild;	//×î×ó±ßµÄº¢×Ó½Ú
+}Tree_Node; //½ÚµãÊı¾İ½á¹¹
 
 typedef struct{
-	AttrType  attrType;	//B+æ ‘å¯¹åº”å±æ€§çš„æ•°æ®ç±»å‹
-	int  attrLength;	//B+æ ‘å¯¹åº”å±æ€§å€¼çš„é•¿åº¦
-	int  order;			//B+æ ‘çš„åºæ•°
-	Tree_Node  *root;	//B+æ ‘çš„æ ¹èŠ‚ç‚¹
+	AttrType  attrType;	//B+Ê÷¶ÔÓ¦ÊôĞÔµÄÊı¾İÀàĞÍ
+	int  attrLength;	//B+Ê÷¶ÔÓ¦ÊôĞÔÖµµÄ³¤¶È
+	int  order;			//B+Ê÷µÄĞòÊı
+	Tree_Node  *root;	//B+Ê÷µÄ¸ù½Ú
 }Tree;
 
 RC CreateIndex(const char * fileName,AttrType attrType,int attrLength);
@@ -66,9 +70,29 @@ RC OpenIndexScan(IX_IndexScan *indexScan,IX_IndexHandle *indexHandle,CompOp comp
 RC IX_GetNextEntry(IX_IndexScan *indexScan,RID * rid);
 RC CloseIndexScan(IX_IndexScan *indexScan);
 RC GetIndexTree(char *fileName, Tree *index);
-int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, AttrType type, int attrLength);
+
+
+
+int insertKey(char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, AttrType type, int attrLength);
 int deleteKey(char *key, RID *val, int *eLength, char *keyDelete, AttrType type, int attrLength);
-//ç”¨äºèŠ‚ç‚¹é”®å€¼å¯¹æ’åºä¸­çš„æ’å…¥ç§»ä½
-int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
+
+//int KeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert, RID valInsert, int attrLength);
+int FindNode(IX_IndexHandle *indexHandle,void *targetKey);
+//ÓÃÓÚ½Úµã¼üÖµ¶ÔÅÅĞòÖĞµÄ²åÈëÒÆÎ»
+int insertKeyShift(int keyOffset,char *key, RID *val, int *effectiveLength, char *keyInsert,const RID *valInsert, int attrLength);
+//É¾³ıÒÆÎ»
+int deleteKeyShift(int keyOffset, char *key, RID *val, int *eLength, int attrLength);
+void RecursionInsert(IX_IndexHandle *indexHandle,void *pData,const RID *rid,PF_PageHandle *pageInsert);
+//Ë÷ÒıÉ¾³ıµÄµİ¹éµ÷ÓÃ
+RC RecursionDelete(IX_IndexHandle *indexHandle, void *pData, const RID *rid, PF_PageHandle *pageDelete);
+
+//ÓëÓÒĞÖµÜ½Úµã½øĞĞ´¦Àí
+void getFromRight(PF_PageHandle *pageHandle, PF_PageHandle *rightHandle, int order, AttrType attrType, int attrLength, const int threshold, int &status);
+//ÕÒ³öµ±Ç°½ÚµãµÄ×óĞÖµÜ½Úµã
+void findLeftBrother(PF_PageHandle *pageHandle, PF_FileHandle *fileHandle, const int order, const AttrType attrType, const int attrLength, PageNum &leftBrother);
+//Óë×óĞÖµÜ½Úµã½øĞĞ´¦Àí
+void getFromLeft(PF_PageHandle *pageHandle, PF_PageHandle *leftHandle, int order, AttrType attrType, int attrLength, const int threshold, int &status);
+// ÒÔµü´úµÄ·½Ê½É¾³ı»òĞŞ¸Ä¸¸½ÚµãµÄ½ÚµãÖµ
+void deleteOrAlterParentNode(PF_PageHandle *parentPageHandle, PF_FileHandle *fileHandle, int order, AttrType attrType, int attrLength, PageNum nodePageNum, void *pData, int parentOrder, bool isDelete);
 
 #endif
