@@ -8,7 +8,10 @@
 RC CloseScan(RM_FileScan *rmFileScan)
 {
 	rmFileScan->bOpen=false;
-	CloseFile(&rmFileScan->pRMFileHandle->file);
+	rmFileScan->conditions=NULL;
+	rmFileScan->conNum=0;
+	rmFileScan->pn=rmFileScan->sn=0;
+	//CloseFile(&rmFileScan->pRMFileHandle->file);  //这个file不能关闭啊
 	UnpinPage(&rmFileScan->PageHandle);
 	return SUCCESS;
 }
@@ -18,6 +21,12 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	//若扫描已经打开
 	if(rmFileScan->bOpen)
 		return RM_FSOPEN;
+	//首先检查目标文件内是否有数据
+	if(fileHandle->file.pFileSubHeader->nAllocatedPages<=2)
+	{
+		rmFileScan->pn=rmFileScan->sn=0;
+		return SUCCESS;
+	}
 	//初始化扫描结构
 	rmFileScan->bOpen=TRUE;
 	rmFileScan->conNum=conNum;
@@ -36,6 +45,9 @@ RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 {
 	if(!rmFileScan->bOpen)
 		return RM_FSCLOSED;
+	//首先检查文件是否有内容
+	if(rmFileScan->pn==0)
+		return RM_NOMORERECINMEM;
 	bitmanager recBitmap(1,NULL);
 	while(1)
 	{
@@ -266,7 +278,13 @@ RC InsertRec (RM_FileHandle *fileHandle,char *pData, RID *rid)
 		free(page);
 	}
 	//更新记录数
-	*(fileHandle->recNum)++;
+	//更新记录数之后需要标记脏页
+	PF_PageHandle *fileCtlPage=new PF_PageHandle;
+	GetThisPage(&fileHandle->file,1,fileCtlPage);
+	(*((int *)fileCtlPage->pFrame->page.pData))++;
+	MarkDirty(fileCtlPage);
+	UnpinPage(fileCtlPage);
+	free(fileCtlPage);
 	return SUCCESS;
 }
 
@@ -303,7 +321,12 @@ RC DeleteRec (RM_FileHandle *fileHandle,const RID *rid)
 		DisposePage(&fileHandle->file,target->pFrame->page.pageNum);
 	}
 	//修改剩余记录数
-	(*fileHandle->recNum)--;
+	PF_PageHandle *fileCtlPage=new PF_PageHandle;
+	GetThisPage(&fileHandle->file,1,fileCtlPage);
+	(*((int *)fileCtlPage->pFrame->page.pData))--;
+	MarkDirty(fileCtlPage);
+	UnpinPage(fileCtlPage);
+	free(fileCtlPage);
 	MarkDirty(target);
 	UnpinPage(target);
 	free(target);
@@ -383,7 +406,6 @@ RC RM_OpenFile(char *fileName, RM_FileHandle *fileHandle)
 	}
 	RM_recControl *recCtl=NULL;
 	recCtl=(RM_recControl *)ctrPage->pFrame->page.pData;
-	fileHandle->recNum=&recCtl->recNum;
 	fileHandle->recOffset=recCtl->recordOffset;
 	fileHandle->recPerPage=recCtl->recPerPage;
 	fileHandle->recSize=recCtl->recSize;

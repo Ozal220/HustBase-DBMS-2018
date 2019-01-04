@@ -190,38 +190,8 @@ void CHustBaseApp::OnOpenDB()
 	//关联打开数据库按钮，此处应提示用户输入数据库所在位置，并调用OpenDB函数改变当前数据库路径，并在界面左侧的控件中显示数据库中的表、列信息。
 
 	//使用文件夹浏览窗口获得文件夹目录
-
-	//BROWSEINFO folder;
-	//ZeroMemory(&folder,sizeof(BROWSEINFO));
-	//LPMALLOC pMalloc;
-	//LPITEMIDLIST getFolder=SHBrowseForFolder(&folder);
-	//if(getFolder!=NULL)
-	//{
-	//	TCHAR *dbPath=new TCHAR[MAX_PATH];
-	//	SHGetPathFromIDList(getFolder,dbPath);
-	//	if(SUCCEEDED(SHGetMalloc(&pMalloc)))
-	//	{
-	//		pMalloc->Free(getFolder);
-	//		pMalloc->Release();
-	//	}
-	//	获得文件名
-	//	int offset;
-	//	for(offset=0;dbPath[offset]!='\0';offset++);
-	//	for(;dbPath[offset]!='\\';offset--);
-	//	char *dbName=(char *)malloc(50);  //假设数据库名长度不大于50字节
-	//	memset(dbName,0,50);
-	//	strcpy(dbName,dbPath+offset+1);
-	//	DropDB(dbName);
-	//}
-
-}
-
-void CHustBaseApp::OnDropDb() 
-{
-	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
-
-	//使用文件浏览窗口获得需要删除的数据库
 	BROWSEINFO folder;
+	folder.lpszTitle="选择数据库目录";
 	ZeroMemory(&folder,sizeof(BROWSEINFO));
 	LPMALLOC pMalloc;
 	LPITEMIDLIST getFolder=SHBrowseForFolder(&folder);
@@ -234,15 +204,39 @@ void CHustBaseApp::OnDropDb()
 			pMalloc->Free(getFolder);
 			pMalloc->Release();
 		}
-		//获得文件名
-		int offset;
-		for(offset=0;dbPath[offset]!='\0';offset++);
-		for(;dbPath[offset]!='\\';offset--);
-		char *dbName=(char *)malloc(50);  //假设数据库名长度不大于50字节
-		memset(dbName,0,50);
-		strcpy(dbName,dbPath+offset+1);
-		DropDB(dbName);
-		free(dbName);
+	    //OpenDB(dbPath);
+		SetCurrentDirectory(dbPath);
+		if (access("SYSTABLES",0)!=0||access("SYSCOLUMNS",0)!=0){
+			AfxMessageBox("Oops！打开了非数据库文件");
+			return;
+		}
+		CHustBaseDoc *pDoc;
+		pDoc=CHustBaseDoc::GetDoc();
+		CHustBaseApp::pathvalue=true;
+		pDoc->m_pTreeView->PopulateTree();
+	}
+}
+
+void CHustBaseApp::OnDropDb() 
+{
+	//关联删除数据库按钮，此处应提示用户输入数据库所在位置，并调用DropDB函数删除数据库的内容。
+
+	//使用文件浏览窗口获得需要删除的数据库
+	BROWSEINFO folder;
+	folder.lpszTitle="请选择需要删除的数据库目录";
+	ZeroMemory(&folder,sizeof(BROWSEINFO));
+	LPMALLOC pMalloc;
+	LPITEMIDLIST getFolder=SHBrowseForFolder(&folder);
+	if(getFolder!=NULL)
+	{
+		TCHAR *dbPath=new TCHAR[MAX_PATH];
+		SHGetPathFromIDList(getFolder,dbPath);
+		if(SUCCEEDED(SHGetMalloc(&pMalloc)))
+		{
+			pMalloc->Free(getFolder);
+			pMalloc->Release();
+		}
+		DropDB(dbPath);
 		free(dbPath);
 	}
 }
