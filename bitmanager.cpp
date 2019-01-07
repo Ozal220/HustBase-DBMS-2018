@@ -24,7 +24,7 @@ bool bitmanager::atPos(int n)   //取出第n位的值，n从0开始计数
     if((n>bmLength*8-1)||n<0)
         return false;
     int atChar=n/8;
-    char target=*(realData+atChar);
+    unsigned char target=*(realData+atChar);
     return (target&(0x01<<(n%8)))==0?false:true;
 }
 
@@ -35,14 +35,16 @@ int bitmanager::firstBit(int n, bool val)
         return -1;
     int offset=n/8;
     int bitOffset=n%8;
-    char test=*(realData+offset);
+    unsigned char test=*(realData+offset);
     unsigned char cmp=val?0x00:0xff;
-    while((test==cmp)&&(offset<bmLength))
+    while(((test>>bitOffset)==(cmp>>bitOffset))&&(offset<bmLength))
     {
+		offset++;
         test=*(realData+offset);
-        offset++;
         bitOffset=0;
     }
+	if(offset>=bmLength)
+		return -1;
     if(val)
         for(;((test&(0x01<<bitOffset))==0)&&bitOffset<8;bitOffset++);
     else
@@ -56,7 +58,7 @@ bool bitmanager::anyZero()  //返回值标识位图中是否有值为0的位
 {
     int offset;
     for(offset=0;offset<bmLength;offset++)
-        if(*(realData+offset)!=0xff)
+        if((unsigned char)(*(realData+offset))!=0xff)
             return true;
     //int lastFewBitsOffset=effectiveLength%8-1;
     //char mask=0x80; //使用算术移位
@@ -71,7 +73,7 @@ bool bitmanager::setBitmap(int pos, bool value)   //设置位图某位的值
         return false;
     int charOffset=pos/8;
     int bitOffset=pos%8;
-    char mask=0x01<<bitOffset;
+    unsigned char mask=0x01<<bitOffset;
     *(realData+charOffset)=value?(*(realData+charOffset)|mask):(*(realData+charOffset)&(~mask));
     //*(realData+charOffset)=value?(*(realData+charOffset)|mask):(*(realData+charOffset)&(~mask));
     return false;

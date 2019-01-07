@@ -8,29 +8,29 @@
 typedef int SlotNum;
 
 typedef struct {	
-	PageNum pageNum;	//记录所在页的页号
-	SlotNum slotNum;		//记录的插槽号
-	bool bValid; 			//true表示为一个有效记录的标识符
+	PageNum pageNum;	//锟斤拷录锟斤拷锟斤拷页锟斤拷页锟斤拷
+	SlotNum slotNum;		//锟斤拷录锟侥诧拷酆锟?
+	bool bValid; 			//true锟斤拷示为一锟斤拷锟斤拷效锟斤拷录锟侥憋拷识锟斤拷
 }RID;
 
 typedef struct{
-	bool bValid;		 // False表示还未被读入记录
-	RID  rid; 		 // 记录的标识符 
-	char *pData; 		 //记录所存储的数据 
+	bool bValid;		 // False锟斤拷示锟斤拷未锟斤拷锟斤拷锟斤拷锟铰?
+	RID  rid; 		 // 锟斤拷录锟侥憋拷识锟斤拷 
+	char *pData; 		 //锟斤拷录锟斤拷锟芥储锟斤拷锟斤拷锟斤拷 
 }RM_Record;
 
-//定义记录信息结构，参考指导书的设计
+//锟斤拷锟斤拷锟铰硷拷锟较?锟结构锟斤拷锟轿匡拷指锟斤拷锟斤拷锟斤拷锟斤拷
 typedef struct{
 	int recNum;
 	int recSize;
 	int recPerPage;
-	int recordOffset; //首条记录偏移量(由于位图的存在及其大小不变)
-	//int fileNum; //该表使用的分页文件数
+	int recordOffset; //锟斤拷锟斤拷锟斤拷录偏锟斤拷锟斤拷(锟斤拷锟斤拷位图锟侥达拷锟节硷拷锟斤拷锟叫★拷锟斤拷锟?)
+	//int fileNum; //锟矫憋拷使锟矫的凤拷页锟侥硷拷锟斤拷
 }RM_recControl;
 
 typedef struct
 {
-	int bLhsIsAttr,bRhsIsAttr;//左、右是属性（1）还是值（0）
+	int bLhsIsAttr,bRhsIsAttr;//锟斤拷锟斤拷锟斤拷锟斤拷锟皆ｏ拷1锟斤拷锟斤拷锟斤拷值锟斤拷0锟斤拷
 	AttrType attrType;
 	int LattrLength,RattrLength;
 	int LattrOffset,RattrOffset;
@@ -38,43 +38,41 @@ typedef struct
 	void *Lvalue,*Rvalue;
 }Con;
 
-typedef struct{//文件句柄
-	bool bOpen;//句柄是否打开（是否正在被使用）
-	//需要自定义其内部结构
+typedef struct{//锟侥硷拷锟斤拷锟?
+	bool bOpen;//锟斤拷锟斤拷欠锟津开ｏ拷锟角凤拷锟斤拷锟节憋拷使锟矫ｏ拷
+	//锟斤拷要锟皆讹拷锟斤拷锟斤拷锟节诧拷锟结构
 	
 	/*********************
-	根据本实验中分页文件的定义方法，一个分页文件大小至多为127MB。
-	现考虑存在一个巨大的表，其大小大于分页文件总大小，此时需要多个
-	分页文件存储
+	锟斤拷锟捷憋拷实锟斤拷锟叫凤拷页锟侥硷拷锟侥讹拷锟藉方锟斤拷锟斤拷一锟斤拷锟斤拷页锟侥硷拷锟斤拷小锟斤拷锟斤拷为127MB锟斤拷
+	锟街匡拷锟角达拷锟斤拷一锟斤拷锟睫达拷谋锟斤拷锟斤拷小锟斤拷锟节凤拷页锟侥硷拷锟杰达拷小锟斤拷锟斤拷时锟斤拷要锟斤拷锟?
+	锟斤拷页锟侥硷拷锟芥储
 	*********************/
-	/*先不管多个文件的情况了
-	char *fileName;  //文件名（表名）
-	int fileNum;  //使用的分页文件数量
-	PF_FileHandle *file[5];  //最多5个分页文件的大小
+	/*锟饺诧拷锟杰讹拷锟斤拷募锟斤拷锟斤拷锟斤拷锟斤拷
+	char *fileName;  //锟侥硷拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
+	int fileNum;  //使锟矫的凤拷页锟侥硷拷锟斤拷锟斤拷
+	PF_FileHandle *file[5];  //锟斤拷锟?5锟斤拷锟斤拷页锟侥硷拷锟侥达拷小
 	*/
 
-	//存储记录的基本信息，与记录信息结构类似，使得打开文件后马上能获得记录管理信息，以后不需要多次访问记录管理页面
-	//但该信息需要及时更新
-	int *recNum;
+	//锟芥储锟斤拷录锟侥伙拷锟斤拷锟斤拷息锟斤拷锟斤拷锟铰硷拷锟较?锟结构锟斤拷锟狡ｏ拷使锟矫达拷锟侥硷拷锟斤拷锟斤拷锟斤拷锟杰伙拷眉锟铰硷拷锟斤拷锟斤拷锟较?锟斤拷锟皆猴拷锟斤拷要锟斤拷畏锟斤拷始锟铰硷拷锟斤拷锟揭筹拷锟?
+	//锟斤拷锟斤拷锟斤拷息锟斤拷要锟斤拷时锟斤拷锟斤拷
 	int recSize;
 	int recPerPage;
 	int recOffset;
-	int bitmapLength;  //控制页的位图大小（按字节计）
-	bitmanager *pageCtlBitmap;   //页面信息的位图管理对象
-	bitmanager *recCtlBitmap;    //记录信息的位图管理对象
-	PF_FileHandle *file;
+	int bitmapLength;  //锟斤拷锟斤拷页锟斤拷位图锟斤拷小锟斤拷锟斤拷锟街节计ｏ拷
+	bitmanager *pageCtlBitmap;   //页锟斤拷锟斤拷息锟斤拷位图锟斤拷锟斤拷锟斤拷锟?
+	bitmanager *recCtlBitmap;    //锟斤拷录锟斤拷息锟斤拷位图锟斤拷锟斤拷锟斤拷锟?
+	PF_FileHandle file;
 }RM_FileHandle;
 
 typedef struct{
-	bool  bOpen;		//扫描是否打开 
-	RM_FileHandle  *pRMFileHandle;		//扫描的记录文件句柄
-	int  conNum;		//扫描涉及的条件数量 
-	Con  *conditions;	//扫描涉及的条件数组指针
-    PF_PageHandle  PageHandle; //处理中的页面句柄
-	PageNum  pn; 	//扫描即将处理的页面号
-	SlotNum  sn;		//扫描即将处理的插槽号
+	bool  bOpen;		//扫锟斤拷锟角凤拷锟? 
+	RM_FileHandle  *pRMFileHandle;		//扫锟斤拷募锟铰硷拷募锟斤拷锟斤拷
+	int  conNum;		//扫锟斤拷锟芥及锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 
+	Con  *conditions;	//扫锟斤拷锟芥及锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷指锟斤拷
+    PF_PageHandle  PageHandle; //锟斤拷锟斤拷锟叫碉拷页锟斤拷锟斤拷
+	PageNum  pn; 	//扫锟借即锟斤拷锟斤拷锟斤拷锟揭筹拷锟斤拷
+	SlotNum  sn;		//扫锟借即锟斤拷锟斤拷锟斤拷牟锟桔猴拷
 }RM_FileScan;
-
 
 
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec);

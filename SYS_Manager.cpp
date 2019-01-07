@@ -4,13 +4,16 @@
 #include "QU_Manager.h"
 #include <iostream>
 #include <fstream>
-#include<vector>
+#include <vector>
+#include "HustBaseDoc.h"
 //´´½¨Ò»¸övectorÓÃÀ´±£´æ¾ä±ú*filehandle
 std::vector<RM_FileHandle *> vec;
+
 struct table{
 		char tablename[21];//±íÃû
 		int attrcount;//ÊôÐÔÊýÁ¿
 }tab;
+
 struct column{
 		char tablename[21];//±íÃû
 		char attrname[21];//ÊôÐÔÃû
@@ -20,7 +23,8 @@ struct column{
 		char ix_flag;//Ë÷ÒýÊÇ·ñ´æÔÚ
 		char indexname[21];//Ë÷ÒýÃû
 }col;
-void ExecuteAndMessage(char * sql,CEditArea* editArea){//¸ù¾ÝÖ´ÐÐµÄÓï¾äÀàÐÍÔÚ½çÃæÉÏÏÔÊ¾Ö´ÐÐ½á¹û¡£
+
+void ExecuteAndMessage(char * sql,CEditArea* editArea,CHustBaseDoc *pDoc){//¸ù¾ÝÖ´ÐÐµÄÓï¾äÀàÐÍÔÚ½çÃæÉÏÏÔÊ¾Ö´ÐÐ½á¹û¡£´Ëº¯ÊýÐèÐÞ¸Ä
 	std::string s_sql = sql;
 	RC rc;
 	if(s_sql.find("select") == 0){//ÊÇ²éÑ¯Óï¾äÔòÖ´ÐÐÒÔÏÂ£¬·ñÔòÌø¹ý
@@ -61,7 +65,7 @@ void ExecuteAndMessage(char * sql,CEditArea* editArea){//¸ù¾ÝÖ´ÐÐµÄÓï¾äÀàÐÍÔÚ½çÃ
 		Destory_Result(&res);
 		return;
 	}
-	RC rc = execute(sql);//·Ç²éÑ¯Óï¾äÔòÖ´ÐÐÆäËûSQLÓï¾ä£¬³É¹¦·µ»ØSUCCESS
+	RC rc = execute(sql,pDoc);//·Ç²éÑ¯Óï¾äÔòÖ´ÐÐÆäËûSQLÓï¾ä£¬³É¹¦·µ»ØSUCCESS
 	int row_num = 0;
 	char**messages;
 	switch(rc){
@@ -89,7 +93,7 @@ void ExecuteAndMessage(char * sql,CEditArea* editArea){//¸ù¾ÝÖ´ÐÐµÄÓï¾äÀàÐÍÔÚ½çÃ
 	}
 }
 
-RC execute(char * sql){
+RC execute(char * sql,CHustBaseDoc *pDoc){
 	sqlstr *sql_str = NULL;//ÉùÃ÷
 	RC rc;
 	sql_str = get_sqlstr();//³õÊ¼»¯
@@ -102,32 +106,41 @@ RC execute(char * sql){
 		{
 			case 1:
 			////ÅÐ¶ÏSQLÓï¾äÎªselectÓï¾ä
-			Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
+			//Select (sql_str->sstr.sel.nSelAttrs,sql_str->sstr.sel.selAttrs,sql_str->sstr.sel.nRelations,sql_str->sstr.sel.relations,sql_str->sstr.sel.nConditions,sql_str->sstr.sel.conditions,res);
 			break;
 
 			case 2:
 			//ÅÐ¶ÏSQLÓï¾äÎªinsertÓï¾ä
-				Insert(sql_str->sstr.ins.relName,sql_str->sstr.ins.nValues,sql_str->sstr.ins.values);
-			break;
+				rc=Insert(sql_str->sstr.ins.relName,sql_str->sstr.ins.nValues,sql_str->sstr.ins.values);
+				pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
+				return rc;
+				break;
 
 			case 3:	
 			//ÅÐ¶ÏSQLÓï¾äÎªupdateÓï¾ä
-				Update(sql_str->sstr.upd.relName,sql_str->sstr.upd.attrName,&sql_str->sstr.upd.value,sql_str->sstr.upd.nConditions,sql_str->sstr.upd.conditions);
-			break;
+				rc=Update(sql_str->sstr.upd.relName,sql_str->sstr.upd.attrName,&sql_str->sstr.upd.value,sql_str->sstr.upd.nConditions,sql_str->sstr.upd.conditions);
+				pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
+				return rc;
+				break;
 
 			case 4:					
 			//ÅÐ¶ÏSQLÓï¾äÎªdeleteÓï¾ä
-				Delete(sql_str->sstr.del.relName,sql_str->sstr.del.nConditions,sql_str->sstr.del.conditions);
-			break;
+				rc=Delete(sql_str->sstr.del.relName,sql_str->sstr.del.nConditions,sql_str->sstr.del.conditions);
+				pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
+				return rc;
+				break;
 
 			case 5:
 			//ÅÐ¶ÏSQLÓï¾äÎªcreateTableÓï¾ä
-				CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
-			break;
-
+				rc=CreateTable(sql_str->sstr.cret.relName,sql_str->sstr.cret.attrCount,sql_str->sstr.cret.attributes);
+				pDoc->m_pTreeView->PopulateTree();
+				return rc;
+				break;
 			case 6:	
 			//ÅÐ¶ÏSQLÓï¾äÎªdropTableÓï¾ä
-				DropTable(sql_str->sstr.drt.relName);
+				rc=DropTable(sql_str->sstr.drt.relName);
+				pDoc->m_pTreeView->PopulateTree();
+				return rc;
 			break;
 
 			case 7:
@@ -138,12 +151,11 @@ RC execute(char * sql){
 			case 8:	
 			//ÅÐ¶ÏSQLÓï¾äÎªdropIndexÓï¾ä
 				DropIndex(sql_str->sstr.dri.indexName);
-			break;
+				break;
 			
 			case 9:
 			//ÅÐ¶ÏÎªhelpÓï¾ä£¬¿ÉÒÔ¸ø³ö°ïÖúÌáÊ¾
 			break;
-		
 			case 10: 
 			//ÅÐ¶ÏÎªexitÓï¾ä£¬¿ÉÒÔÓÉ´Ë½øÐÐÍË³ö²Ù×÷
 				AfxGetMainWnd()->SendMessage(WM_CLOSE);
@@ -156,36 +168,48 @@ RC execute(char * sql){
 }
 
 RC CreateDB(char *dbpath,char *dbname){//°üÀ¨2¸öÏµÍ³ÎÄ¼þ¡¢0µ½¶à¸ö¼ÇÂ¼ÎÄ¼þºÍ0µ½¶à¸öË÷ÒýÎÄ¼þ
-	    if(CreateDirectory(strcat(dbpath,strcat("\\",dbname)),NULL)==SUCCESS){
-			SetCurrentDirectory(strcat(dbpath,strcat("\\",dbname)));
-			if(RM_CreateFile("SYSTABLES",sizeof(tab))==SUCCESS&&RM_CreateFile("SYSCOLUMNS",sizeof(col))==SUCCESS)		
-			    return SUCCESS;
-		}
-		return SQL_SYNTAX;
+	char *finalPath=(char *)malloc(40);
+	memset(finalPath,0,40);
+	strcat(finalPath,dbpath);
+	strcat(finalPath,"\\");
+	strcat(finalPath,dbname);
+    if(CreateDirectory(finalPath,NULL)){
+		SetCurrentDirectory(finalPath);
+		if(RM_CreateFile("SYSTABLES",25)==SUCCESS&&RM_CreateFile("SYSCOLUMNS",76)==SUCCESS)		
+		    return SUCCESS;
+	}
+	return SQL_SYNTAX;
 }
 
 RC DropDB(char *dbname){
 	CFileFind find;
-	bool isfinded=find.FindFile(strcat(dbname,"\\*.*"));
+	char *operatePath=(char *)malloc(300);
+	memset(operatePath,0,300);
+	strcat(operatePath,dbname);
+	strcat(operatePath,"\\*.*");
+	bool isfinded=find.FindFile(operatePath);
 	while(isfinded){
+		memset(operatePath,0,300);
 		isfinded=find.FindNextFile();
-		if(find.IsDots()){
-			if(!find.IsDirectory()){
-				DropTable(strcat(strcat(dbname,"\\"),find.GetFileName().GetBuffer(200)));
-			}
-		}
-		else{
-			DeleteFile(strcat(strcat(dbname,"\\"),find.GetFileName().GetBuffer(200)));
+		if((!find.IsDots())&&(!find.IsDirectory()))
+		{
+			strcat(operatePath,dbname);
+			strcat(operatePath,"\\");
+			strcat(operatePath,find.GetFileName().GetBuffer(200));
+			DeleteFile(operatePath);
 		}
 	}
 	find.Close();
-	if(RemoveDirectory(dbname))return SUCCESS;
+	free(operatePath);
+	if(RemoveDirectory(dbname))
+		return SUCCESS;
 	else return SQL_SYNTAX;
 }
 
 RC OpenDB(char *dbname){
-	if(SetCurrentDirectory(dbname))return SUCCESS;//ÉèÖÃÖ¸¶¨Â·¾¶Îª¹¤×÷Â·¾¶
-        else return SQL_SYNTAX;
+	//if(SetCurrentDirectory(dbname))return SUCCESS;//ÉèÖÃÖ¸¶¨Â·¾¶Îª¹¤×÷Â·¾¶
+    //    else return SQL_SYNTAX;
+	return SUCCESS;
 }
 
 
@@ -263,10 +287,12 @@ RC CreateTable(char *relName,int attrCount,AttrInfo *attributes){
 	for (int i=0; i<attrCount;++i){
 		recordsize +=attributes[i].attrLength;
 	}
-	if (RM_CreateFile(relName, recordsize) != SUCCESS)return SQL_SYNTAX;
+	if (RM_CreateFile(relName, recordsize)!=SUCCESS)
+		return SQL_SYNTAX;
 	return SUCCESS;	
 }
 
+//´«ÈëµÄÊÇ±íÃû
 RC DropTable(char *relName){
 /*	FILE *fp1,*fp2;
 	fp1=fopen(strcat(strcat(path,strcat("\\",db)),"SYSTABLES"),"r");//É¾³ýÏµÍ³±íÎÄ¼þÏà¹ØÐÅÏ¢
@@ -305,6 +331,22 @@ RC DropTable(char *relName){
 	if(remove(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)
 	//É¾³ýË÷Òý
 	if(RemoveDirectory(strcat(strcat(path,strcat("\\",db)),strcat("\\",relName)))==true)return SUCCESS;*/
+	CFileFind find;
+	char *operatePath=(char *)malloc(300);
+	memset(operatePath,0,300);
+	GetCurrentDirectory(200,operatePath);
+	strcat(operatePath,"\\");
+	strcat(operatePath,relName);
+	strcat(operatePath,"*.*");
+	//Ê×ÏÈ²éÕÒÓÐÎÞ¸Ã±í
+	bool exist=find.FindFile(operatePath);
+	if(!exist)
+	{
+		AfxMessageBox("¸Ã±í²»´æÔÚ");
+		free(operatePath);
+		return SQL_SYNTAX;
+	}
+	free(operatePath);
 	CFile tmp;
 	RM_FileHandle *rm_table, *rm_column;
 	RM_FileScan FileScan;
@@ -364,7 +406,12 @@ RC CreateIndex(char *indexName,char *relName,char *attrName){
 	while (GetNextRec(&FileScan, &reccol) == SUCCESS){
 		memcpy(col.tablename,reccol.pData,21);
 		memcpy(col.attrname,reccol.pData+21,21);
-		char*type,*length,*offset;
+		char *type=(char *)malloc(100);
+		memset(type,0,100);
+	    char *length=(char *)malloc(100);
+		memset(length,0,100);
+		char *offset=(char *)malloc(100);
+		memset(length,0,100);
 		memcpy(type,reccol.pData+42,sizeof(int));
 		switch((int)type){
 		case 0:col.attrtype=chars;break;
@@ -452,7 +499,8 @@ RC DropIndex(char *indexName){
 RC Insert(char *relName,int nValues,Value *values){
 	CFile tmp;
 	RM_FileHandle *rm_data,*rm_table,*rm_column;
-	char *value;//¶ÁÈ¡Êý¾Ý±íÐÅÏ¢
+	char *value=(char *)malloc(200);//¶ÁÈ¡Êý¾Ý±íÐÅÏ¢
+	memset(value,0,200);
 	RID *rid;
 	column *Column, *ctmp;//ÓÃÓÚ´æ´¢Ò»¸ö±íµÄËùÓÐÊôÐÔµÄÖµ
 	RM_FileScan FileScan;
@@ -522,7 +570,6 @@ RC Insert(char *relName,int nValues,Value *values){
 	}
 	ctmp = Column;
 	//Ïò¼ÇÂ¼ÎÄ¼þÖÐÑ­»·²åÈë¼ÇÂ¼
-	value = (char *)malloc(rm_data->recSize);
 	values = values + nValues -1;
 	for (int i = 0; i < nValues; i++, values--,ctmp++){
 		memcpy(value + ctmp->attroffset, values->data, ctmp->attrlength);
@@ -532,6 +579,7 @@ RC Insert(char *relName,int nValues,Value *values){
 	InsertRec(rm_data, value, rid);
 	//¹Ø±ÕÏµÍ³ÁÐÎÄ¼þÉ¨Ãè
 	if(CloseScan(&FileScan)!=SUCCESS)return SQL_SYNTAX;
+
 	//´ò¿ªÏµÍ³ÁÐÎÄ¼þÉ¨Ãè
 	FileScan.bOpen = false;
 	if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
@@ -831,6 +879,7 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 
 		if (torf == 1){
 			DeleteRec(rm_data, &(recdata.rid));
+			/*
 			//´ò¿ªÏµÍ³ÁÐÎÄ¼þÉ¨Ãè
 			FileScan.bOpen = false;
 			if (OpenScan(&FileScan, rm_column, 0, NULL)!= SUCCESS){
@@ -863,6 +912,7 @@ RC Delete(char *relName,int nConditions,Condition *conditions){
 					break;
 				}
 			}
+			*/
 		}	
 	}
 	free(Column);
