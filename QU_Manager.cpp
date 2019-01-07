@@ -54,7 +54,7 @@ RC Select(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, i
 	}
 	if(nRelations==1&&nConditions==0)single_nocon(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);//单表无条件查询
 	else if(nRelations==1&&nConditions>0)single_con(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);//单表条件查询
-	else if(nRelations>1)multi(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);//多表查询
+//	else if(nRelations>1)multi(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);//多表查询
 	return SUCCESS;
 }
 
@@ -257,7 +257,7 @@ RC single_con(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relation
 	res = resHead;
 	return SUCCESS;
 }
-
+/*
 RC multi(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res) 
 {
 	RC rc;
@@ -626,7 +626,7 @@ RC recurSelect(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relatio
 	//free(selectCons);
 	return SUCCESS;
 }
-
+*/
 RC Query(char *sql,SelResult *res){
 	sqlstr *sql_str = NULL;//声明
 	RC rc;
